@@ -20,6 +20,7 @@ var _art: Node2D
 
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    ENV.begin_world()
     _art = Node2D.new()
     _art.name = "EnvironmentArt"
     add_child(_art)

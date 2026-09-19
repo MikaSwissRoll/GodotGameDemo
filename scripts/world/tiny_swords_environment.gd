@@ -40,6 +40,44 @@ static func add_ground_rect(
     return layer
 
 
+## Elevation registry. Every plateau built with add_plateau registers its footprint
+## and cliff line, and `elevation_at()` answers "is this point on high ground?".
+## Ballistics uses it to allow high-to-low shots and refuse low-to-high ones.
+const PLATEAU_CLIFF_GROUP := "plateau_cliff"
+
+static var _plateaus: Array[Rect2i] = []
+
+
+## Start a fresh elevation registry. Each world and each arena stage calls this
+## before building, so a reloaded scene or a new stage never inherits plateaus
+## from the previous one.
+static func begin_world() -> void:
+    _plateaus.clear()
+
+
+## The plateau a point stands on, or an empty rect when it is on the low ground.
+static func plateau_at(point: Vector2) -> Rect2i:
+    var tile := Vector2i(floori(point.x / 64.0), floori(point.y / 64.0))
+    for rect in _plateaus:
+        if rect.has_point(tile):
+            return rect
+    return Rect2i(0, 0, 0, 0)
+
+
+## True when a point on the map surface belongs to a plateau, i.e. is high ground.
+static func elevation_at(point: Vector2) -> bool:
+    var tile := Vector2i(floori(point.x / 64.0), floori(point.y / 64.0))
+    for rect in _plateaus:
+        if rect.has_point(tile):
+            return true
+    return false
+
+
+## Cliff line of a plateau: the world y where its surface ends and the drop begins.
+static func cliff_y_of(rect: Rect2i) -> float:
+    return float(rect.position.y + rect.size.y) * 64.0
+
+
 static func add_plateau(
     parent: Node,
     layer_name: String,
@@ -47,6 +85,8 @@ static func add_plateau(
     rect: Rect2i,
     collision: bool = true
 ) -> TileMapLayer:
+    if not _plateaus.has(rect):
+        _plateaus.append(rect)
     var surface := _new_tile_layer(parent, layer_name, texture, -18)
     for local_y in range(rect.size.y):
         for local_x in range(rect.size.x):
@@ -80,9 +120,12 @@ static func add_plateau(
         shadow.z_index = -19
         parent.add_child(shadow)
     if collision:
-        add_wall(parent,
+        var wall := add_wall(parent,
             Vector2((rect.position.x + rect.size.x * 0.5) * 64.0, cliff_y * 64.0 + 32.0),
             Vector2(rect.size.x * 64.0, 58.0))
+        # Tagged so a shot fired from this plateau's surface can pass over the
+        # cliff instead of dying on the wall directly below the shooter.
+        wall.add_to_group(PLATEAU_CLIFF_GROUP)
     return surface
 
 

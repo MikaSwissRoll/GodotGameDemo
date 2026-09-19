@@ -27,6 +27,7 @@ func _ready() -> void:
 
 func configure(next_stage: int) -> void:
     stage = next_stage
+    ENV.begin_world()
     if is_instance_valid(_stage_root):
         _stage_root.queue_free()
     _stage_root = Node2D.new()

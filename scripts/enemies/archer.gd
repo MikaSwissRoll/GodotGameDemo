@@ -3,6 +3,7 @@ class_name ArcherEnemy
 
 const SPRITES := preload("res://scripts/systems/sprite_frames_factory.gd")
 const FEEDBACK := preload("res://scripts/systems/combat_feedback.gd")
+const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const ARROW_SCENE := preload("res://scenes/enemies/arrow.tscn")
 const RED_ARCHER := "res://asset/Units/Red Units/Archer/"
 
@@ -99,6 +100,10 @@ func _shoot(direction: Vector2) -> void:
     var arrow := ARROW_SCENE.instantiate() as EnemyArrow
     arrow.direction = direction
     arrow.damage = projectile_damage
+    # Ballistics depends on the shooter's elevation: from a plateau the shot may
+    # drop onto the low ground, while a shot from below cannot reach a plateau.
+    arrow.origin_plateau = ENV.plateau_at(global_position)
+    arrow.from_high_ground = ENV.elevation_at(global_position)
     get_parent().add_child(arrow)
     arrow.global_position = global_position + Vector2(0.0, -27.0) + direction * 45.0
     await get_tree().create_timer(0.34, false).timeout

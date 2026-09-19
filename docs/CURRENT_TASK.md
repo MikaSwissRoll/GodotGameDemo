@@ -27,14 +27,41 @@ Four related UI requests:
 
 ## Implementation phases
 
-1. Move the stage readout onto the gold row (item 2).
-2. Add a backing panel behind the potion/build block (item 3).
-3. Restyle the reward modal's skill rows and body text, and give the shop modal
+1. ✅ Move the stage readout onto the gold row (item 2).
+2. ✅ Add a backing panel behind the potion/build block (item 3).
+3. ⏳ Restyle the reward modal's skill rows and body text, and give the shop modal
    the same treatment (item 1).
-4. Port to classic: `TinyBar` for health/stamina, unlabelled stacked bars, no
+4. ✅ High-ground ballistics: high shots may fall to the low ground, low shots
+   may not reach a plateau (item 5).
+5. ⏳ Port to classic: `TinyBar` for health/stamina, unlabelled stacked bars, no
    dark backing panels, text outlines, quest on the gold row, potion block
    background, paper modal with adaptive height and a red title-return action
-   (item 4).
+   (item 6).
+
+## High-ground ballistics (item 5)
+
+The complaint was that a plateau looked wrong for ranged combat, not that the
+player got stuck: the archer behind a cliff could not be answered and its own
+shots died on the cliff wall directly beneath it.
+
+`tiny_swords_environment.gd` now keeps an elevation registry. `begin_world()` is
+called by `world.gd` and by `run_arena.configure()` so a reloaded scene or a new
+arena stage never inherits another world's plateaus, and `add_plateau()`
+registers each footprint. `elevation_at()` and `plateau_at()` answer whether a
+point is high ground; `cliff_y_of()` gives a plateau's drop line.
+
+`EnemyArrow` carries `from_high_ground` and `origin_plateau`, set by the archer at
+spawn, and applies two rules:
+
+- **high to low** — a shot loosed from a plateau ignores the wall at its own
+  cliff line, so it clears the edge and lands on the ground below;
+- **low to high** — a shot loosed from the low ground passes under a target
+  standing on a plateau (`_may_strike`), so shooting uphill is refused.
+
+Any other wall still stops an arrow in both cases.
+
+`tests/ballistics.gd` is a new permanent regression covering all three cases:
+high-to-low hits, low-to-high is refused, level ground still hits.
 
 ## Test plan
 
