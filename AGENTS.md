@@ -21,8 +21,8 @@ focused on the current vertical slice.
 - After significant gameplay changes, run the project, inspect parser,
   runtime, and resource errors, and fix them before continuing.
 - For visual, UI, environment, and scene-design work, capture the rendered
-  result when practical, inspect it with Codex image capabilities, and iterate
-  based on visual QA.
+  result when practical, inspect it with the agent's image capabilities, and
+  iterate based on visual QA.
 - Route art tasks through `docs/art/`: read `ART_DIRECTION.md` for all visual
   work; add `ENVIRONMENT_DESIGN.md`, `SCENE_DESIGN_WORKFLOW.md`,
   `UI_VISUAL_RULES.md`, or `ASSET_USAGE_RULES.md` for the matching task.
@@ -34,8 +34,8 @@ focused on the current vertical slice.
 
 ## Autonomous Development Workflow
 
-For all non-trivial development tasks in this project, Codex should work as a
-product-minded game developer, Godot engineer, and QA tester rather than only
+For all non-trivial development tasks in this project, the agent should work as
+a product-minded game developer, Godot engineer, and QA tester rather than only
 as a code generator.
 
 ### Default Workflow

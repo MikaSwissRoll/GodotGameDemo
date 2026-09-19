@@ -21,10 +21,10 @@ static func panel_style(wood: bool = false) -> StyleBoxTexture:
     style.texture_margin_top = 26.0
     style.texture_margin_right = 26.0
     style.texture_margin_bottom = 26.0
-    style.content_margin_left = 16.0
-    style.content_margin_top = 14.0
-    style.content_margin_right = 16.0
-    style.content_margin_bottom = 14.0
+    # Deliberately no content_margin. Setting one made StyleBoxTexture scale the
+    # nine-patch's corner regions by (size - 2*content_margin) instead of drawing
+    # at the panel's size, so a 690x68 panel painted only 27px tall and its
+    # labels fell outside the visible frame. Cells place their own content.
     return style
 
 
@@ -41,13 +41,29 @@ static func ribbon_style(color_index: int = 0) -> StyleBoxTexture:
     return style
 
 
+static func hud_panel_style() -> StyleBoxFlat:
+    # The HUD boxes are only 50-180px tall. SpecialPaper's nine-patch does not
+    # paint its frame at the Control's rect at those sizes (measured: a 68px
+    # panel painted 41px, offset ~20px down), which left every label outside its
+    # frame. A flat box draws exactly at the declared rect, so text stays inside.
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("#525b66")
+    style.border_color = Color("#c5ab72")
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(3)
+    return style
+
+
 static func bar_background_style() -> StyleBoxTexture:
     var style := StyleBoxTexture.new()
     style.texture = _horizontal_patch(BAR_BASE, 128)
+    # The caps stay small so the frame still fits inside the HUD bars' 26px
+    # height: 12px of top and bottom cap leaves a visible middle stretch band,
+    # where the previous 18px margins consumed the whole height and clipped.
     style.texture_margin_left = 26.0
     style.texture_margin_right = 26.0
-    style.texture_margin_top = 18.0
-    style.texture_margin_bottom = 18.0
+    style.texture_margin_top = 12.0
+    style.texture_margin_bottom = 12.0
     return style
 
 
@@ -57,10 +73,12 @@ static func bar_fill_style(color: Color) -> StyleBoxFlat:
     style.border_color = color.lightened(0.22)
     style.set_border_width_all(2)
     style.set_corner_radius_all(5)
-    style.expand_margin_left = -7.0
-    style.expand_margin_top = -7.0
-    style.expand_margin_right = -7.0
-    style.expand_margin_bottom = -7.0
+    # Keep the fill inside the frame. The previous -7px expand margins pushed
+    # the fill outside the background's edges, which clipped it top and bottom.
+    style.expand_margin_left = -6.0
+    style.expand_margin_top = -6.0
+    style.expand_margin_right = -6.0
+    style.expand_margin_bottom = -6.0
     return style
 
 

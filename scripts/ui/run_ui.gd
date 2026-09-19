@@ -6,6 +6,32 @@ const UI := preload("res://scripts/ui/tiny_swords_ui.gd")
 const INK := Color("#f7edcf")
 const PANEL_COLOR := Color("#26362f", 0.96)
 const EDGE := Color("#c5ab72")
+# Sizes are the panel's *painted* area: the nine-patch frame extends outside it.
+# MODAL_HEIGHT is the tallest layout (four actions); _show() shrinks the panel to
+# the action count actually present, so two-button results leave no dead area.
+# Sizes are the Control's declared rect. SpecialPaper's nine-patch fills its rect
+# (the wood sheet leaves transparent corners, which let actions escape the frame),
+# so 700x610 paints ~665x570 and contains the actions with real margin.
+const MODAL_WIDTH := 700.0
+const MODAL_HEIGHT := 610.0
+const MODAL_BUTTON_WIDTH := 500.0
+const MODAL_BUTTON_LEFT := 100.0
+const MODAL_BUTTON_TOP := 180.0
+const MODAL_BUTTON_STEP := 78.0
+const MODAL_BUTTON_HEIGHT := 72.0
+const MODAL_PAD := 20.0
+# The title and body sit above the first button, so the panel must stay tall
+# enough for them; shrinking purely to the button count overlapped the body.
+const MODAL_MIN_HEIGHT := 358.0
+# Button indices that cancel progress, per docs/art/UI_VISUAL_RULES.md: quitting
+# or abandoning a run takes the red destructive state, matching the main menu's
+# "退出游戏" button.
+const DANGER_BUTTONS := {
+    "shop": [2, 3],
+    "pause": [1, 2],
+    "win": [1],
+    "dead": [1],
+}
 
 signal start_requested
 signal classic_requested
@@ -191,31 +217,34 @@ func _upgrade_button_text() -> String:
 
 
 func _build_hud(root: Control) -> void:
-    var stats := _panel(root, Vector2(20, 20), Vector2(320, 146))
-    health_label = _label(stats, Vector2(16, 6), Vector2(290, 28), 19)
-    health_bar = _bar(stats, Vector2(16, 38), Color("#bf514b"))
-    stamina_label = _label(stats, Vector2(16, 73), Vector2(290, 28), 19)
-    stamina_bar = _bar(stats, Vector2(16, 105), Color("#d5ae50"))
-    boost_label = _label(root, Vector2(26, 169), Vector2(310, 29), 17)
+    # Panel height is the sum of its content: two 28px labels, two 40px bars,
+    # and 8px of padding at the top, between rows, and at the bottom.
+    var stats := _hud_panel(root, Vector2(20, 20), Vector2(320, 168))
+    health_label = _label(stats, Vector2(16, 10), Vector2(280, 28), 19)
+    health_bar = _bar(stats, Vector2(16, 40), Color("#bf514b"))
+    stamina_label = _label(stats, Vector2(16, 88), Vector2(280, 28), 19)
+    stamina_bar = _bar(stats, Vector2(16, 118), Color("#d5ae50"))
+    boost_label = _label(root, Vector2(20, 194), Vector2(310, 29), 17)
     boost_label.visible = false
 
-    var gold_panel := _panel(root, Vector2(-165, 20), Vector2(145, 52))
+    var gold_panel := _hud_panel(root, Vector2(-155, 20), Vector2(135, 52))
     gold_panel.anchor_left = 1.0
     gold_panel.anchor_right = 1.0
-    UI.add_icon(gold_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(7, 5), Vector2(42, 42))
-    gold_label = _label(gold_panel, Vector2(47, 10), Vector2(90, 30), 21)
+    UI.add_icon(gold_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(8, 6), Vector2(40, 40))
+    gold_label = _label(gold_panel, Vector2(54, 12), Vector2(78, 28), 21)
 
-    var stage_panel := _panel(root, Vector2(-570, 82), Vector2(550, 53))
+    var stage_panel := _hud_panel(root, Vector2(-560, 82), Vector2(540, 52))
     stage_panel.anchor_left = 1.0
     stage_panel.anchor_right = 1.0
-    UI.add_icon(stage_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_05.png", Vector2(7, 5), Vector2(42, 42))
-    stage_label = _label(stage_panel, Vector2(53, 10), Vector2(480, 32), 20)
+    UI.add_icon(stage_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_05.png", Vector2(8, 6), Vector2(40, 40))
+    stage_label = _label(stage_panel, Vector2(56, 12), Vector2(468, 28), 20)
 
-    var bottom := _panel(root, Vector2(20, -114), Vector2(690, 90))
+    # Sized to its two short lines so it no longer reads as an empty trough.
+    var bottom := _hud_panel(root, Vector2(20, -88), Vector2(690, 68))
     bottom.anchor_top = 1.0
     bottom.anchor_bottom = 1.0
-    potion_label = _label(bottom, Vector2(14, 8), Vector2(660, 31), 18)
-    build_label = _label(bottom, Vector2(14, 46), Vector2(660, 30), 17)
+    potion_label = _label(bottom, Vector2(16, 10), Vector2(658, 24), 18)
+    build_label = _label(bottom, Vector2(16, 36), Vector2(658, 22), 17)
 
     var controls := _label(root, Vector2(-520, -45), Vector2(500, 31), 16)
     controls.anchor_left = 1.0
@@ -241,21 +270,22 @@ func _build_overlay(root: Control) -> void:
     root.add_child(overlay)
     _build_main_menu(overlay)
 
-    modal_panel = _panel(overlay, Vector2(-325, -280), Vector2(650, 560), true)
+    modal_panel = _panel(overlay, Vector2(-MODAL_WIDTH * 0.5, -MODAL_HEIGHT * 0.5), Vector2(MODAL_WIDTH, MODAL_HEIGHT), false)
     modal_panel.anchor_left = 0.5
     modal_panel.anchor_right = 0.5
     modal_panel.anchor_top = 0.5
     modal_panel.anchor_bottom = 0.5
-    UI.add_icon(modal_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(297, 18), Vector2(56, 56))
-    overlay_title = _label(modal_panel, Vector2(75, 78), Vector2(500, 50), 34)
+    UI.add_icon(modal_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(330, 30), Vector2(40, 40))
+    overlay_title = _label(modal_panel, Vector2(100, 82), Vector2(500, 48), 34)
     overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    overlay_body = _label(modal_panel, Vector2(70, 135), Vector2(510, 64), 20)
+    overlay_body = _label(modal_panel, Vector2(100, 134), Vector2(500, 40), 20)
     overlay_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     overlay_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     overlay_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    overlay_body.add_theme_color_override("font_color", Color("#4b3527"))
+    overlay_body.add_theme_color_override("font_color", INK)
+    # Evenly gap-separated actions, contained by the panel's visible frame.
     for index in 4:
-        var button := _button(modal_panel, Vector2(110, 215 + index * 78), Vector2(430, 64))
+        var button := _button(modal_panel, Vector2(MODAL_BUTTON_LEFT, MODAL_BUTTON_TOP + index * MODAL_BUTTON_STEP), Vector2(MODAL_BUTTON_WIDTH, MODAL_BUTTON_HEIGHT))
         button.pressed.connect(_on_button_pressed.bind(index))
         buttons.append(button)
 
@@ -265,56 +295,73 @@ func _build_main_menu(parent: Control) -> void:
     menu_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     parent.add_child(menu_root)
 
-    var card := _panel(menu_root, Vector2(84, 154), Vector2(408, 416))
-    var ribbon := Panel.new()
-    ribbon.position = Vector2(108, 108)
-    ribbon.size = Vector2(370, 88)
-    ribbon.add_theme_stylebox_override("panel", UI.ribbon_style(0))
-    menu_root.add_child(ribbon)
+    # The card is the menu: it holds the banner, subtitle, divider, and all three
+    # buttons, so nothing overlaps its border or leaves a dead area. The declared
+    # 400x428 is the painted area; the nine-patch frame adds ~85px per side.
+    # SpecialPaper's tiles align with the nine-patch sampling, unlike the wood
+    # sheet, whose tiles sit at offsets that would sample empty space.
+    var card := _panel(menu_root, Vector2(440, 146), Vector2(400, 428))
+    _banner(menu_root, Vector2(455, 126), Vector2(370, 56))
 
     UI.add_icon(menu_root, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png",
-        Vector2(102, 114), Vector2(76, 76))
-    var title := _label(menu_root, Vector2(174, 126), Vector2(270, 52), 38)
+        Vector2(470, 136), Vector2(36, 36))
+    var title := _label(menu_root, Vector2(514, 136), Vector2(296, 36), 33)
     title.text = "边境远征"
     title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    title.add_theme_color_override("font_color", Color("#fff2cf"))
-    title.add_theme_color_override("font_outline_color", Color("#26394a"))
-    title.add_theme_constant_override("outline_size", 5)
+    title.add_theme_color_override("font_color", Color("#f7edcf"))
+    title.add_theme_constant_override("outline_size", 0)
 
-    var subtitle := _label(menu_root, Vector2(124, 220), Vector2(328, 62), 20)
+    # SpecialPaper renders as dark slate (#525b66), so the card takes warm light
+    # ink rather than the dark ink used on genuinely light surfaces.
+    var subtitle := _label(menu_root, Vector2(480, 208), Vector2(320, 28), 20)
     subtitle.text = "踏出村庄 · 选择战技 · 击败精英"
     subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    subtitle.add_theme_color_override("font_color", Color("#fff1cf"))
-    subtitle.add_theme_color_override("font_outline_color", Color("#26362f"))
-    subtitle.add_theme_constant_override("outline_size", 3)
+    subtitle.add_theme_color_override("font_color", INK)
+    subtitle.add_theme_constant_override("outline_size", 0)
 
     var divider := ColorRect.new()
     divider.color = Color("#d3a64d")
-    divider.position = Vector2(166, 287)
-    divider.size = Vector2(244, 2)
+    divider.position = Vector2(520, 248)
+    divider.size = Vector2(240, 2)
     divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
     menu_root.add_child(divider)
 
     var specs := [
-        [Vector2(128, 310), Vector2(320, 66), "开始远征", false],
-        [Vector2(151, 392), Vector2(274, 54), "经典冒险", false],
-        [Vector2(168, 462), Vector2(240, 50), "退出游戏", true],
+        [Vector2(495, 274), Vector2(290, 64), "开始远征", false, 22],
+        [Vector2(495, 350), Vector2(290, 64), "经典冒险", false, 20],
+        [Vector2(495, 426), Vector2(290, 64), "退出游戏", true, 20],
     ]
     for index in specs.size():
         var spec: Array = specs[index]
         var button := _button(menu_root, spec[0], spec[1], spec[3])
         button.text = spec[2]
-        button.add_theme_font_size_override("font_size", 22 if index == 0 else 19)
+        button.add_theme_font_size_override("font_size", spec[4])
         button.pressed.connect(_on_button_pressed.bind(index))
         menu_buttons.append(button)
 
 
+func _banner(parent: Control, at: Vector2, size: Vector2) -> Panel:
+    var banner := Panel.new()
+    banner.position = at
+    banner.size = size
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("#2b3b52")
+    style.border_color = Color("#c5ab72")
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(4)
+    banner.add_theme_stylebox_override("panel", style)
+    parent.add_child(banner)
+    return banner
+
+
 func _show(title: String, body: String, labels: Array[String], next_mode: String) -> void:
     mode = next_mode
-    hud_root.visible = next_mode != "menu"
+    # A run-ending or shop modal makes the combat HUD irrelevant, so subordinate
+    # it. Keep it for "pause", where the frozen HUD is the visible pause context
+    # the art rules ask for.
+    hud_root.visible = next_mode == "pause"
     menu_root.visible = false
     modal_panel.visible = true
     overlay.color = Color("#0b1718", 0.77)
@@ -322,10 +369,27 @@ func _show(title: String, body: String, labels: Array[String], next_mode: String
     _toast_time = 0.0
     overlay_title.text = title
     overlay_body.text = body
+    var danger: Array = DANGER_BUTTONS.get(next_mode, [])
     for index in 4:
         buttons[index].visible = index < labels.size()
         if index < labels.size():
             buttons[index].text = labels[index]
+            # Re-apply per state: the same Button instance is reused across
+            # overlay modes, so the destructive style must be set and cleared.
+            UI.apply_button(buttons[index], index in danger)
+    # Fit the panel to the action count. A fixed height left a large dead area
+    # under two-button results such as "远征失败".
+    # Center-anchored, so offsets are relative to the viewport centre; assigning
+    # `position` here would be re-derived against the anchor and push the panel
+    # off-screen, so set the offsets that `position` is computed from.
+    var needed := maxf(
+        MODAL_BUTTON_TOP + MODAL_BUTTON_STEP * (labels.size() - 1) + MODAL_BUTTON_HEIGHT,
+        MODAL_MIN_HEIGHT
+    ) + MODAL_PAD
+    modal_panel.offset_left = -MODAL_WIDTH * 0.5
+    modal_panel.offset_right = MODAL_WIDTH * 0.5
+    modal_panel.offset_top = -needed * 0.5
+    modal_panel.offset_bottom = needed * 0.5
     overlay.visible = true
     buttons[0].grab_focus()
 
@@ -366,12 +430,24 @@ func _panel(parent: Control, at: Vector2, size: Vector2, wood: bool = false) -> 
     return panel
 
 
+func _hud_panel(parent: Control, at: Vector2, size: Vector2) -> Panel:
+    var panel := Panel.new()
+    panel.position = at
+    panel.size = size
+    panel.add_theme_stylebox_override("panel", UI.hud_panel_style())
+    parent.add_child(panel)
+    return panel
+
+
 func _label(parent: Control, at: Vector2, size: Vector2, font_size: int) -> Label:
     var label := Label.new()
     label.position = at
     label.size = size
     label.add_theme_color_override("font_color", INK)
     label.add_theme_font_size_override("font_size", font_size)
+    # Center the line box inside its slot. Top-aligned text sat against the
+    # panel's frame, so glyphs read as escaping the box they belong to.
+    label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     parent.add_child(label)
     return label
 
@@ -379,7 +455,9 @@ func _label(parent: Control, at: Vector2, size: Vector2, font_size: int) -> Labe
 func _bar(parent: Control, at: Vector2, fill: Color) -> ProgressBar:
     var bar := ProgressBar.new()
     bar.position = at
-    bar.size = Vector2(288, 22)
+    # Tall enough for the bar frame's 12px top and bottom caps plus a visible
+    # middle band for the fill.
+    bar.size = Vector2(288, 40)
     bar.show_percentage = false
     var background := UI.bar_background_style()
     var foreground := UI.bar_fill_style(fill)

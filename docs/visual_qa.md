@@ -36,7 +36,9 @@ Use `-Output` to keep comparison images:
 | `wilderness` | River crossing and borderland |
 | `enemy_camp` | Red faction camp and enemies |
 | `combat` | Active roguelite combat room |
-| `merchant_shop` | Roguelite merchant overlay |
+| `merchant_shop` | Roguelite merchant encounter in the arena |
+| `shop_overlay` | Four-action merchant modal, the tallest shared overlay |
+| `result_dead` | Run-failed result reached by an actual player death |
 | `dialogue_ui` | Village guard dialogue presentation |
 | `pause_menu` | Paused roguelite run |
 
@@ -51,7 +53,7 @@ For UI, environment, map, and visual polish work:
 
 1. Read `art/ART_DIRECTION.md` and the matching documents under `docs/art/`.
 2. Capture the current target with a `_before` filename.
-3. Inspect the PNG with Codex local image viewing.
+3. Inspect the PNG with the agent's local image viewing.
 4. Record concrete observations about hierarchy, contrast, alignment, density,
    clipping, readability, or scene composition.
 5. Make one focused change.

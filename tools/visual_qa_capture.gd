@@ -12,6 +12,8 @@ const VALID_TARGETS := [
     "merchant_shop",
     "dialogue_ui",
     "pause_menu",
+    "shop_overlay",
+    "result_dead",
 ]
 
 var _target := "main_menu"
@@ -101,7 +103,7 @@ func _parse_arguments() -> bool:
 
 
 func _configure_target(game: Node) -> void:
-    if _target in ["main_menu", "combat", "merchant_shop", "pause_menu"]:
+    if _target in ["main_menu", "combat", "merchant_shop", "pause_menu", "shop_overlay", "result_dead"]:
         await _configure_run_target(game)
     else:
         await _configure_classic_target(game)
@@ -125,6 +127,28 @@ func _configure_run_target(game: Node) -> void:
             await _wait_frames(5)
             game.phase = "pause"
             ui.show_pause()
+            paused = true
+        "shop_overlay":
+            # The real four-button shop modal, which is the tallest the shared
+            # overlay gets and the layout that drives the adaptive panel height.
+            ui.start_requested.emit()
+            await _wait_frames(6)
+            game.gold = 12
+            ui.set_gold(12)
+            game.call("_enter_shop")
+            ui.call("show_shop", 12, game.shop_upgrade_id,
+                game.health_potion_price, game.stamina_potion_price, game.upgrade_price)
+            paused = true
+        "result_dead":
+            # Drive a real death so the result overlay is reached the way the
+            # game reaches it, which also proves the HUD is hidden behind it.
+            # Clear the spawn invulnerability, otherwise take_damage no-ops.
+            ui.start_requested.emit()
+            await _wait_frames(6)
+            var hero := game.get_node("Player")
+            hero._invulnerability_left = 0.0
+            hero.take_damage(hero.max_health, Vector2.RIGHT)
+            await _wait_frames(6)
             paused = true
 
 
