@@ -3,3 +3,8 @@
 /android/
 /.codex/godot-mcp/node_modules/
 /screenshots/visual_qa/*
+
+# Tiny Swords (Pixel Frog) assets are third-party and are NOT licensed for
+# redistribution. Keep them out of the repository; supply them locally.
+/asset/
+
