@@ -32,6 +32,29 @@ focused on the current vertical slice.
   gameplay changes. If a required MCP capability is unavailable, fall back to
   the local Godot CLI or other appropriate project tools.
 
+## UI Development
+
+For any significant UI, HUD, menu, dialogue, shop, or visual-interface task, read
+and apply:
+
+- `docs/art/UI_VISUAL_RULES.md` — what the UI should look like
+- `docs/ui/UI_WORKFLOW.md` — how to build it, and the quality gate
+- `docs/ui/UI_KNOWN_FAILURES.md` — defects this project already shipped once
+- `docs/ui/UI_ASSET_GUIDE.md` — measured inventory of usable assets
+
+Prefer existing assets from `asset/UI Elements/UI Elements` and
+`asset/Shikashi's Fantasy Icons Pack v2` over default Godot controls,
+`ColorRect` panels, or placeholder icons.
+
+A Control's declared geometry is not what appears on screen. Do not size panels,
+buttons, or labels from `size`, `minimum_size`, or a computed rect alone, and do
+not declare UI finished because it loads, has nodes, responds to input, or logs
+no errors. Significant UI work must include a runtime screenshot captured with
+`tools/capture_visual_qa.ps1` and visually reviewed against the quality gate in
+`UI_WORKFLOW.md`.
+
+Treat these documents as persistent project rules.
+
 ## Autonomous Development Workflow
 
 For all non-trivial development tasks in this project, the agent should work as

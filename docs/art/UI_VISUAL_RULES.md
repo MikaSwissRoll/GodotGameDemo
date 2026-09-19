@@ -66,6 +66,15 @@ text on light paper and cream banners. Never rely on a light outline to rescue
 light text placed over a light surface. Avoid scaling rendered text or UI
 containers to fractional sizes.
 
+Choose the ink from the surface's measured colour, not from an asset's name:
+`SpecialPaper` reads as "paper" but renders as dark slate (`#525b66`), so it takes
+the same warm light ink as the wood and button surfaces. Text drawn directly on
+the game world — with no panel behind it — must carry a dark outline, because the
+terrain behind it changes value as the camera moves.
+
+The project bundles no font and uses the Godot default theme, which has no bold
+face. Express emphasis through size, colour, and position; do not rely on markup.
+
 ## HUD
 
 Keep persistent combat information near the viewport edges and leave the center
@@ -73,10 +82,18 @@ clear. Group health and stamina together. Put coins, encounter state, potions,
 and run upgrades into separate compact groups according to how often the player
 checks them.
 
-Bars must include a text label or value; color alone is insufficient. Icons
-should reinforce labels rather than replace unfamiliar information. Control
+Bars normally carry a text label or value, because color alone is insufficient.
+The roguelite HUD is a deliberate, reviewed exception: its health and stamina
+bars are unlabelled, and are told apart by **width and fill colour** — health is
+the wider bar with the red gradient, stamina the narrower one with the gold
+indicator line. If a third bar is ever added, the pair must be re-reviewed, since
+two unlabelled bars is the most this treatment can carry. The classic adventure
+HUD keeps its `生命` / `精力` values.
+
+Icons should reinforce labels rather than replace unfamiliar information. Control
 hints belong near the lower edge and should yield to dialogue, rewards, or other
-short-lived messages.
+short-lived messages. Keep every HUD group inside a 20-pixel inset from the
+viewport edge, and give icon-plus-label pairs one consistent gap.
 
 ## Main menu and pause
 
@@ -135,3 +152,14 @@ For any changed UI state, capture and inspect the matching target defined in
 button containment, icon alignment, contrast, clipping, and the amount of world
 still visible behind the interface. Numerical anchors and clean logs do not
 replace this inspection.
+
+## Related documents
+
+This document defines the target look. It deliberately does not cover process,
+past defects, or the asset inventory:
+
+- [UI Workflow](../ui/UI_WORKFLOW.md) — how to build UI, and the completion gate.
+- [UI Known Failures](../ui/UI_KNOWN_FAILURES.md) — defects this project has
+  already shipped and fixed.
+- [UI Asset Guide](../ui/UI_ASSET_GUIDE.md) — measured inventory of usable assets.
+- [Asset Usage Rules](ASSET_USAGE_RULES.md) — provenance and modification policy.
