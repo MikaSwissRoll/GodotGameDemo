@@ -216,13 +216,13 @@ func _upgrade_button_text() -> String:
 
 
 func _build_hud(root: Control) -> void:
-    # Panel height is the sum of its content: two 28px labels, two 44px bars,
-    # and 10px of padding at the top, between rows, and at the bottom.
+    # Panel height is the sum of its content: two 28px labels, the BigBar's 44px
+    # frame, the SmallBar's 19px frame, and 10px of padding around and between.
     var stats := _hud_panel(root, Vector2(20, 20), Vector2(320, 174))
     health_label = _label(stats, Vector2(16, 10), Vector2(280, 28), 19)
-    health_bar = _bar(stats, Vector2(16, 38), Color.WHITE)
+    health_bar = _bar(stats, Vector2(16, 38), "big")
     stamina_label = _label(stats, Vector2(16, 92), Vector2(280, 28), 19)
-    stamina_bar = _bar(stats, Vector2(16, 120), Color("#e8b73f"))
+    stamina_bar = _bar(stats, Vector2(16, 120), "small")
     boost_label = _label(root, Vector2(20, 200), Vector2(310, 29), 17)
     boost_label.visible = false
 
@@ -451,13 +451,15 @@ func _label(parent: Control, at: Vector2, size: Vector2, font_size: int) -> Labe
     return label
 
 
-func _bar(parent: Control, at: Vector2, tint: Color) -> TinyBar:
+func _bar(parent: Control, at: Vector2, design: String) -> TinyBar:
     var bar := TinyBar.new()
+    # Setting `design` also applies that design's default fill tint; an explicit
+    # assignment here would be redundant and is avoided so the sheet owns its look.
+    bar.design = design
     bar.position = at
-    # The composed frame is a native 44px tall, so the caps stay crisp at this
-    # height. Width is free; only the middle tile repeats.
-    bar.size = Vector2(288, 44)
-    bar.tint = tint
+    # Each design is used at its native frame height so the caps stay crisp;
+    # only the width varies, and only the middle tile repeats.
+    bar.size = Vector2(288, bar.native_height())
     parent.add_child(bar)
     return bar
 

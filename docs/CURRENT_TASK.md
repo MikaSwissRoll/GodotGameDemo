@@ -23,14 +23,24 @@ scripts, scenes, and assets.
 0. **The bars were flat colour, not the supplied bar art.** `_bar()` drew a
    `StyleBoxFlat` rectangle inside a nine-patch frame, so an empty bar showed a
    theme default rather than the asset. `scripts/ui/tiny_bar.gd` (`TinyBar`) now
-   composes `Bars/BigBar_Base.png` at the exact requested width — caps blitted
-   whole, middle tile repeated — and draws `Bars/BigBar_Fill.png` into the
-   frame's recessed band, tinted white for health and gold for stamina.
-   `NinePatchRect` was tried first and rejected: the sheet's caps are not flush
-   with their 64px tiles, so no patch margin or axis mode stretches it correctly
-   (verified by sweeping margins 6/12/24/40 in both STRETCH and TILE).
-   Measured geometry: frame y 9..52 (44px), recess y 25..43 (19px), caps at
-   x 40..63 and 256..279, middle tile x 128..191.
+   uses each sheet as its artist intended:
+   - **health — BigBar**: frame `y 9..52` with a 19px recess at `y 25..43`, filled
+     by the `BigBar_Fill` gradient (the recess is the track, the gradient is the
+     value);
+   - **stamina — SmallBar**: frame `y 22..40` with a 9px dark track at `y 30..38`,
+     marked by `SmallBar_Fill`, a solid 3px line at `y 30..32` (the track is the
+     empty part, the line is the value).
+
+   Both sheets are 3-slices with irregular tile spacing, not nine-patches: caps
+   at `x 40..63` / `49..63` and `256..279` / `256..270`, middles at `x 128..191`.
+   `NinePatchRect` was tried first and rejected — no patch margin or axis mode
+   stretches them correctly (swept margins 6/12/24/40 in both STRETCH and TILE),
+   because the caps are not flush with their 64px tiles. Each bar is therefore
+   composed at its exact width: caps blitted whole, middle tile repeated.
+
+   Both fills ship red, and stamina must read gold. Multiplying red by gold only
+   yields orange, so the fill is its own layer under a small hue-shift shader
+   (red at hue 0 lands on gold at -0.92) instead of a plain modulate.
 
 1. **`SpecialPaper`'s nine-patch does not paint at the Control's rect.** Isolated
    on a black backdrop it consistently painted `height - 27` (a 690x68 panel
