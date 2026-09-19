@@ -19,12 +19,18 @@ const EDGE := Color("#c5ab72")
 const MODAL_CONTENT_TOP := 180.0
 const MODAL_CONTENT_HEIGHT := 330.0
 const ROW_GAP := 16.0
+const QUEST_TEXT_RIGHT := -178.0
+const QUEST_TEXT_MAX_WIDTH := 520.0
+const QUEST_ICON_SIZE := 40.0
+const QUEST_ICON_GAP := 8.0
 
 var health_bar: TinyBar
 var health_label: Label
 var stamina_bar: TinyBar
 var stamina_label: Label
+var gold_icon: TextureRect
 var gold_label: Label
+var quest_icon: TextureRect
 var quest_label: Label
 var potion_label: Label
 var boost_label: Label
@@ -103,6 +109,19 @@ func set_stamina_boost(remaining: float) -> void:
 
 func set_quest(text: String) -> void:
     quest_label.text = text
+    _layout_quest_group()
+
+
+func _layout_quest_group() -> void:
+    # Pin the group before the gold icon, but keep the shield beside the text.
+    # The label expands left as objectives grow instead of entering the gold HUD.
+    var text_width := minf(
+        ceilf(quest_label.get_minimum_size().x),
+        QUEST_TEXT_MAX_WIDTH)
+    quest_label.offset_right = QUEST_TEXT_RIGHT
+    quest_label.offset_left = QUEST_TEXT_RIGHT - text_width
+    quest_icon.offset_right = quest_label.offset_left - QUEST_ICON_GAP
+    quest_icon.offset_left = quest_icon.offset_right - QUEST_ICON_SIZE
 
 
 func show_toast(message: String, seconds: float = 2.8) -> void:
@@ -160,22 +179,30 @@ func _build_hud(root: Control) -> void:
     stamina_label = _label(root, Vector2(20, 104), Vector2(280, 26), 19)
     stamina_bar = _bar(root, Vector2(20, 132), "small", 232.0)
 
-    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(1125, 20), Vector2(40, 40))
+    gold_icon = UI.add_icon(root,
+        "res://asset/UI Elements/UI Elements/Icons/Icon_03.png",
+        Vector2(1125, 20), Vector2(40, 40))
+    gold_icon.anchor_left = 1.0
+    gold_icon.anchor_right = 1.0
+    gold_icon.offset_left = -155.0
+    gold_icon.offset_right = -115.0
     gold_label = _label(root, Vector2(1171, 26), Vector2(78, 28), 21)
     gold_label.anchor_left = 1.0
     gold_label.anchor_right = 1.0
     gold_label.offset_left = -109.0
     gold_label.offset_right = -31.0
 
-    # Quest readout shares the gold row, to its left, right-aligned so a long
-    # objective grows away from the gold instead of into it.
-    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(844, 20), Vector2(40, 40))
-    quest_label = _label(root, Vector2(892, 26), Vector2(224, 28), 18)
-    quest_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    # The group's right edge is fixed before the gold icon. `set_quest()` sizes
+    # the label from its current text and moves the shield with its left edge.
+    quest_icon = UI.add_icon(root,
+        "res://asset/UI Elements/UI Elements/Icons/Icon_06.png",
+        Vector2(584, 20), Vector2(40, 40))
+    quest_icon.anchor_left = 1.0
+    quest_icon.anchor_right = 1.0
+    quest_label = _label(root, Vector2(632, 26), Vector2(470, 28), 18)
+    quest_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     quest_label.anchor_left = 1.0
     quest_label.anchor_right = 1.0
-    quest_label.offset_left = -388.0
-    quest_label.offset_right = -164.0
 
     # Potion readout on its own backing so it stays legible over the ground.
     var pouch := _pouch_panel(root, Vector2(20, -66), Vector2(400, 48))
@@ -387,5 +414,3 @@ func _button(parent: Control, at: Vector2, dimensions: Vector2) -> Button:
     UI.apply_button(button)
     parent.add_child(button)
     return button
-
-

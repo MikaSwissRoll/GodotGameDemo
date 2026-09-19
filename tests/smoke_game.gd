@@ -112,9 +112,14 @@ func _run() -> void:
     fresh_ui.title_requested.emit()
     await process_frame
     await process_frame
-    assert(current_scene != fresh and paused, "Main Menu did not reload the title screen")
+    assert(current_scene != fresh, "Classic title action did not leave the classic scene")
+    assert(current_scene.scene_file_path == "res://scenes/main/run_game.tscn",
+        "Classic title action did not open the unified main menu")
+    var run_ui := current_scene.get_node("RunUI")
+    assert(paused and run_ui.mode == "menu",
+        "Unified main menu was not visible and paused after leaving classic mode")
 
-    print("SMOKE PASS: menu, movement, dash, pause, combat, archer, quest, gold, completion, death, restart, title")
+    print("SMOKE PASS: menu, movement, dash, pause, combat, archer, quest, gold, completion, death, restart, unified title")
     quit(0)
 
 

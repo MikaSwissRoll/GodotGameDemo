@@ -2,6 +2,7 @@ extends Node2D
 
 const INPUT_SETUP := preload("res://scripts/systems/input_setup.gd")
 const GOLD_SCENE := preload("res://scenes/world/gold_pickup.tscn")
+const MAIN_MENU_SCENE := "res://scenes/main/run_game.tscn"
 
 @export var health_potion_price: int = 3
 @export var stamina_potion_price: int = 3
@@ -90,7 +91,7 @@ func _on_restart_requested() -> void:
 
 func _on_title_requested() -> void:
     get_tree().paused = false
-    get_tree().reload_current_scene()
+    get_tree().change_scene_to_file(MAIN_MENU_SCENE)
 
 
 func _on_quit_requested() -> void:
@@ -202,5 +203,3 @@ func _on_quest_completed() -> void:
     get_tree().paused = true
     await get_tree().create_timer(1.8).timeout
     ui.show_complete()
-
-

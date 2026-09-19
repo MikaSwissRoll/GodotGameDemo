@@ -1,76 +1,61 @@
-# Current task: overlay polish, HUD layout, and porting to classic mode
+# Current task: classic menu return and HUD separation
 
 ## Goal
 
-Four related UI requests:
+Fix two classic-mode defects:
 
-1. Improve the **战技选择** (reward) and **行商营地** (shop) overlays.
-2. Move the **battlefield info** (stage/enemy count) to the left of the gold
-   readout so both sit on the top-right row.
-3. Give the **生命药水 / 精力药水 / 战技** block a background again.
-4. Port these HUD and overlay changes to **经典冒险** (classic mode).
+1. Returning to the title from classic mode must open the unified roguelite main
+   menu instead of reloading the legacy "Tiny Kingdom" menu.
+2. The classic quest objective and gold groups must remain visually separate at
+   the top of the viewport.
 
 ## Existing systems affected
 
-- `scripts/ui/run_ui.gd` — roguelite HUD and shared modal (items 1-3).
-- `scripts/ui/game_ui.gd` — classic HUD and its own modal (item 4).
-- `scripts/ui/tiny_bar.gd` — reused as-is; classic adopts it.
+- `scripts/main/game.gd` classic scene navigation.
+- `scripts/ui/game_ui.gd` classic HUD layout.
+- `tests/smoke_game.gd` classic title-return expectation.
+- A focused classic UI regression test.
+- The existing `village` visual QA target.
 
 ## Important assumptions
 
-- Classic mode keeps its own characteristics: it has a quest banner, a merchant
-  that sells potions only, and `继续探索` / `重新开始` result wording. Only the
-  presentation is unified, not the flow.
-- The classic quest label moves to the gold row to match the stage label, since
-  both are the same kind of persistent objective readout.
-- No gameplay, balance, scene, or asset changes.
+- Restart continues to restart classic mode.
+- The classic entry menu remains available when classic mode first opens.
+- The longest current active-quest text must fit on one row without entering the
+  gold icon or value.
+- Gameplay, balance, and the roguelite HUD remain unchanged.
 
 ## Implementation phases
 
-1. ✅ Move the stage readout onto the gold row (item 2).
-2. ✅ Add a backing panel behind the potion/build block (item 3).
-3. ⏳ Restyle the reward modal's skill rows and body text, and give the shop modal
-   the same treatment (item 1).
-4. ✅ High-ground ballistics: high shots may fall to the low ground, low shots
-   may not reach a plateau (item 5).
-5. ⏳ Port to classic: `TinyBar` for health/stamina, unlabelled stacked bars, no
-   dark backing panels, text outlines, quest on the gold row, potion block
-   background, paper modal with adaptive height and a red title-return action
-   (item 6).
-
-## High-ground ballistics (item 5)
-
-The complaint was that a plateau looked wrong for ranged combat, not that the
-player got stuck: the archer behind a cliff could not be answered and its own
-shots died on the cliff wall directly beneath it.
-
-`tiny_swords_environment.gd` now keeps an elevation registry. `begin_world()` is
-called by `world.gd` and by `run_arena.configure()` so a reloaded scene or a new
-arena stage never inherits another world's plateaus, and `add_plateau()`
-registers each footprint. `elevation_at()` and `plateau_at()` answer whether a
-point is high ground; `cliff_y_of()` gives a plateau's drop line.
-
-`EnemyArrow` carries `from_high_ground` and `origin_plateau`, set by the archer at
-spawn, and applies two rules:
-
-- **high to low** — a shot loosed from a plateau ignores the wall at its own
-  cliff line, so it clears the edge and lands on the ground below;
-- **low to high** — a shot loosed from the low ground passes under a target
-  standing on a plateau (`_may_strike`), so shooting uphill is refused.
-
-Any other wall still stops an arrow in both cases.
-
-`tests/ballistics.gd` is a new permanent regression covering all three cases:
-high-to-low hits, low-to-high is refused, level ground still hits.
+1. Capture the current classic village HUD.
+2. Route classic title requests to `run_game.tscn`.
+3. Give the quest group enough width and a fixed gap before the gold group.
+4. Add a focused regression for HUD separation and title navigation.
+5. Capture the updated village HUD and compare.
+6. Run the focused test and check Godot runtime output.
 
 ## Test plan
 
-- Run all seven harnesses after each phase.
-- Capture and inspect `combat`, `shop_overlay` and `result_dead` plus the classic
-  targets `village` and `dialogue_ui`.
-- Add a `reward_overlay` visual QA target, since the reward modal is item 1 and
-  currently has no target.
+- Compare before and after `village` captures at 1280 by 720.
+- Check the longest active quest text against the gold icon and label.
+- Verify classic `title_requested` changes to `run_game.tscn`.
+- Confirm the unified main menu is paused and visible after the transition.
+- Run Godot's project parse check.
 
 ## Out of scope
 
-Gameplay balance, combat, world layout, new assets, and the Godot MCP setup.
+Removing the classic entry menu, redesigning the full HUD, changing the
+roguelite UI, gameplay changes, and a full-game playthrough.
+
+## Outcome
+
+- Classic title requests now open `run_game.tscn`, while restart still reloads
+  classic mode.
+- The quest group is pinned before the gold group, sizes itself from the current
+  objective text, and keeps its shield beside the text.
+- The `village` capture target now stages the longest active quest progress
+  state.
+- `tests/classic_ui_smoke.gd` verifies HUD separation and the scene transition.
+- The focused test and Godot parse check passed.
+- The final 1280 by 720 capture was inspected in full and at the HUD crop. The
+  active objective is complete and separated from the gold group.
