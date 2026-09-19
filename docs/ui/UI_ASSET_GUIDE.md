@@ -16,6 +16,28 @@ measured sizes, and whether stretching is safe.
 Every path below exists in the repository. Every dimension was measured from the
 file, not inferred from a filename.
 
+Geometry and compatibility notes are stable until the source asset or rendering
+helper changes. Statements such as "in use," "unused," and "has no callers" are
+a working-tree snapshot. Recheck those claims with a code search before deleting
+or redesigning anything.
+
+## Use this guide
+
+Use the inventory to choose and verify an asset without repeating earlier
+measurement mistakes.
+
+1. Start with the visual role: surface, action, value bar, status icon, or
+   decoration.
+2. Choose the highest-priority compatible source family.
+3. Inspect the exact file at native resolution.
+4. Distinguish its logical rect, painted silhouette, and usable content plane.
+5. Check every state and size that the component will render.
+6. Capture the asset inside the real target screen before accepting it.
+
+Do not copy a margin or optical offset from another asset merely because both
+are buttons or panels. Measurements belong to the exact file, state, and
+rendering helper that produced them.
+
 ## Source priority
 
 1. `asset/UI Elements/UI Elements/` — the Tiny Swords UI kit. **First choice**
@@ -122,6 +144,13 @@ centres its labels on the art's measured visible extent (`ART_ABOVE = 18`,
 `FRONT_FACE_TEXT_OFFSET_Y = -10` to bias onto the front-facing plane, because the
 art includes a lower extrusion and the optical centre of the beveled button is not
 the centre of its full silhouette.
+
+These constants model two different bounds. `ART_ABOVE` and `ART_BELOW` describe
+the complete painted silhouette, while `FRONT_FACE_TEXT_OFFSET_Y` excludes the
+lower depth extrusion from the perceived content center. The recent pause and
+reward fix only converged after both bounds were measured. Recheck the
+front-facing plane for pressed art or a different button family instead of
+reusing this offset blindly.
 
 ### Bars
 
@@ -271,15 +300,40 @@ Honest state of asset usage, so future work does not re-derive it:
   leftovers, not available tools; remove or repurpose them rather than assuming
   they are the intended path.
 
-## Adding a new asset reference
+## Keep usage notes current
 
-1. Confirm the exact path on disk — do not guess.
-2. Open it at native resolution and record width, height, and opaque extent.
-3. Decide single sprite vs. 3x3 sheet vs. multi-row sheet, and measure the tile
-   geometry (stride **and** per-axis offset).
-4. If it is stretchable, state which axes are safe and why.
-5. Add a row to the relevant table here.
-6. Verify the result in a runtime capture.
+The geometry tables are measurement records. The "in use" and "current gaps"
+sections are maintenance hints and require verification against the current
+working tree.
+
+Before changing one of those statements:
+
+1. Search exact asset paths and helper names with `rg`.
+2. Check runtime-created resources, because many UI assets are referenced in
+   GDScript rather than `.tscn` files.
+3. Update every affected row and the current-gaps list in the same change.
+4. Record a new measurement when a rendering helper changes how the asset is
+   sliced, stretched, tinted, or offset.
+
+Do not remove a helper solely because this guide calls it unused.
+
+## Add a new asset reference
+
+Add evidence that another developer can reproduce.
+
+1. Confirm the exact path on disk.
+2. Open the file at native resolution and record width, height, alpha bounds, and
+   any transparent padding.
+3. Classify it as a single sprite, three-slice, nine-patch, or multi-row sheet.
+4. Measure tile origin, stride, cap sizes, and safe stretch axes when applicable.
+5. Record the logical rect, complete painted silhouette, and usable content
+   plane separately.
+6. Repeat rendered measurements at three representative sizes when the asset
+   stretches.
+7. Check regular, pressed, focused, and disabled art when those states use
+   different files or offsets.
+8. Add or update the relevant table and current-use note.
+9. Verify the result in a full-viewport target capture.
 
 See [Asset Usage Rules](../art/ASSET_USAGE_RULES.md) for provenance and the
 no-modification policy on `asset/`.

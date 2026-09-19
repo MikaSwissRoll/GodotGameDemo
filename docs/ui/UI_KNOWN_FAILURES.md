@@ -2,16 +2,31 @@
 
 ## Purpose
 
-Defects this project has actually shipped, caught, and fixed. Each entry records
-the symptom as it appeared on screen, the measured cause, and how to prevent it.
+This document records verified visual defects and workflow traps encountered in
+this project. Each entry identifies the rendered symptom, measured cause,
+prevention, and the smallest useful validation.
 
-This is not general UI theory. If a pattern is not listed here, it has not yet
-bitten this project. Every entry below is backed by a fix in the git history.
+Use it as a diagnosis index. Match the current screenshot to a symptom, then
+apply only the relevant prevention and validation. Do not run every historical
+check for every UI edit.
 
-The single theme running through almost all of them: **a Control's declared
-geometry is not what appears on screen.** Godot's StyleBoxes, nine-patch
-sampling, and the asset's own transparent padding all shift, squash, or clip the
-painted result relative to the rect you wrote.
+The dominant theme is that a `Control`'s declared geometry is not necessarily
+what appears on screen. Godot's StyleBoxes, nine-patch sampling, transparent
+padding, shadows, bevels, and extrusions can move or shrink the painted result.
+
+## Triage a UI failure
+
+Use this short sequence before changing layout constants:
+
+1. Capture the exact affected state with fixed data.
+2. Describe the visible defect and approximate direction or magnitude.
+3. Find the matching failure below.
+4. Measure the rendered pixels when code geometry and the image disagree.
+5. Fix the narrowest responsible layer.
+6. Recapture the same state and run only the affected functional test.
+
+If two positional fixes fail to converge, stop nudging and remeasure the asset's
+painted silhouette and usable content plane.
 
 ---
 
@@ -394,6 +409,74 @@ Confirm both lines carry the intended relative size and sit inside the frame.
 
 ---
 
+## Visual verification depended on a full playthrough
+
+**Symptoms**
+
+- A small color, spacing, or text-position edit takes as long to verify as a
+  gameplay feature.
+- Visual iteration is blocked by combat, currency, random waves, or another
+  unrelated route to the screen.
+- An unrelated flaky playthrough obscures whether the UI change is correct.
+
+**Measured cause**
+
+The former workflow treated three independent questions as one test: whether the
+state can be reached through gameplay, whether the UI behaves correctly, and
+whether the rendered state looks correct. It ran the full regression set after
+every significant UI edit even when only rendered pixels changed.
+
+**Prevention**
+
+- Stage the affected visual state directly with a deterministic capture target.
+- Add a focused interaction or integration test only when its contract changed.
+- Reserve full playthroughs for progression changes, milestones, and release
+  validation.
+- Do not use unrelated flaky tests as a visual quality gate.
+
+**Validation**
+
+The target repeatedly produces the same state, the screenshot is inspected, and
+the smallest test covering any changed behavior passes.
+
+*The selective policy replaced the former all-suite UI regression step.*
+
+---
+
+## Screenshot existed while the capture command reported failure
+
+**Symptoms**
+
+- The requested PNG is present and visually valid, but the wrapper exits with an
+  error.
+- Re-running the same target produces the same image and the same unrelated
+  stderr report.
+- A stale PNG can be mistaken for evidence from the latest run.
+
+**Measured cause**
+
+The Windows wrapper redirects Godot stderr and surfaces any stderr text as a
+PowerShell error under `ErrorActionPreference = Stop`. Warnings can therefore
+terminate the wrapper even when Godot wrote the PNG.
+
+**Prevention**
+
+- Treat a fresh PNG and process status as separate signals.
+- Check the output timestamp and stderr before accepting the capture.
+- Keep warnings visible, but do not let a benign warning impersonate a render
+  failure.
+- Never accept an existing file without proving the current run rewrote it.
+
+**Validation**
+
+Remove or rename the previous output, run the target, confirm a fresh PNG was
+written, inspect it, and classify any stderr. Record an unresolved wrapper error
+instead of calling the run clean.
+
+*This is a capture-harness limitation, not a reason to run the whole game.*
+
+---
+
 ## A UI state with no capture target
 
 **Symptoms**
@@ -408,14 +491,21 @@ modal in particular went through several rounds of button-sizing fixes with no
 way to capture it.
 
 **Prevention**
-- When you add or change a UI state, add a target to `tools/visual_qa_capture.gd`
-  **and** the `ValidateSet` in `tools/capture_visual_qa.ps1` in the same change.
-  Both lists must be updated or the capture is rejected before it runs.
-- Prefer driving the real flow (an actual player death for `result_dead`) over
-  forcing state, so the capture also proves the transition.
+
+- When you add or change a UI state, add a target to
+  `tools/visual_qa_capture.gd` and the `ValidateSet` in
+  `tools/capture_visual_qa.ps1` in the same change.
+- Make the visual target deterministic: use fixed data, enter the state directly,
+  wait for layout, and freeze noisy motion.
+- If the transition into the state changed, test that transition separately with
+  the smallest relevant smoke test. Do not make repeated visual capture depend
+  on completing unrelated gameplay.
 
 **Validation**
-Every state you touched must be reachable by name in the capture harness.
+
+Every state you touched must be reachable by name in the capture harness and
+produce a stable full-viewport image. When its transition changed, the matching
+focused flow test must also pass.
 
 *`shop_overlay` and `result_dead` added in `75c9734`; `reward_overlay` added
 later, closing the last gap.*

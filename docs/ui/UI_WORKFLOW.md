@@ -2,260 +2,328 @@
 
 ## Purpose
 
-This document owns **how UI is built** in this project. It is the process
-counterpart to the other UI documents, and deliberately does not repeat them:
+This document defines how you create, repair, and verify UI in this project. It
+keeps visual review separate from interaction and gameplay regression, so each
+change gets the smallest reliable test instead of an unrelated full playthrough.
+
+Use the companion documents for their specific responsibilities:
 
 | Question | Document |
 | --- | --- |
 | What should the UI look like? | [UI Visual Rules](../art/UI_VISUAL_RULES.md) |
-| How should we build it? | this document |
-| What mistakes must we not repeat? | [UI Known Failures](UI_KNOWN_FAILURES.md) |
-| Which existing assets do we use? | [UI Asset Guide](UI_ASSET_GUIDE.md) |
-| General asset policy and provenance | [Asset Usage Rules](../art/ASSET_USAGE_RULES.md) |
+| How do I create or repair it? | This document |
+| Which project failures must I recognize? | [UI Known Failures](UI_KNOWN_FAILURES.md) |
+| Which assets and measurements can I reuse? | [UI Asset Guide](UI_ASSET_GUIDE.md) |
+| How are third-party assets handled? | [Asset Usage Rules](../art/ASSET_USAGE_RULES.md) |
+| How do capture targets work? | [Visual QA](../visual_qa.md) |
 
-The reason this process exists at all: this project has shipped UI that compiled,
-ran, responded to input, and reported no errors — while looking wrong on screen.
-Every rule below comes from a defect that reached a screenshot.
+UI is not complete when the scene loads or its node rectangles look correct.
+The rendered pixels, relevant interactions, and affected state contracts are the
+evidence.
 
-## The one-sentence version
+## Default loop
 
-**Read the rules, pick real assets, lay out structure, then prove it with a
-screenshot — because a Control's declared geometry is not what appears on screen.**
+Use this loop for every significant UI task:
 
-## Non-negotiable prerequisite
-
-A UI task is not finished when the scene loads, the nodes exist, or the buttons
-work. It is finished when a **rendered screenshot has been inspected** and the
-quality gate below passes. No exceptions for "small" changes.
-
----
-
-## The workflow
-
-### 1. Understand the purpose
-
-Write down, in one or two sentences, what decision or action the screen serves
-and who reads it at what moment. A modal read mid-combat is not the same object
-as a title screen. This drives hierarchy in step 5 and nothing later can fix it.
-
-### 2. Inspect the existing UI architecture
-
-Before adding nodes, read what exists:
-
-- `scripts/ui/run_ui.gd` — roguelite HUD, main menu, and the shared modal.
-- `scripts/ui/game_ui.gd` — classic adventure HUD and its own modal.
-- `scripts/ui/tiny_swords_ui.gd` — `class_name TinySwordsUI`, all StyleBox and
-  texture helpers. This is the only place style construction belongs.
-- `scripts/ui/tiny_bar.gd` — `class_name TinyBar`, health/stamina bars.
-- `scripts/ui/action_row.gd` — `class_name ActionRow`, modal action buttons.
-
-Both UIs are built **in code**, not in `.tscn` files. `scenes/ui/run_ui.tscn` and
-`game_ui.tscn` are thin `CanvasLayer` wrappers. Follow that convention.
-
-Decide explicitly whether the change is to the roguelite UI, the classic UI, or
-both. These are two separate implementations that deliberately share only
-`TinySwordsUI`, `TinyBar`, and `ActionRow`.
-
-### 3. Read the project UI rules
-
-Read [UI_VISUAL_RULES.md](../art/UI_VISUAL_RULES.md) for surface language,
-typography minimums, hierarchy, and layout safety. Read
-[ART_DIRECTION.md](../art/ART_DIRECTION.md) if the change affects the overall
-look. Do not start placing nodes before this.
-
-### 4. Audit the existing assets
-
-Open [UI_ASSET_GUIDE.md](UI_ASSET_GUIDE.md) and pick real files. Search the
-filesystem rather than guessing a path. The project already contains buttons,
-papers, banners, ribbons, bars, twelve icons, avatars, cursors, and a 245-icon
-fantasy pack — reach for those before drawing a `ColorRect` or accepting a
-default Godot control.
-
-If an appropriate asset exists, using a placeholder instead is a defect, not a
-simplification.
-
-### 5. Define the visual hierarchy before sizing anything
-
-State the order of attention, for example for a result modal:
-
-1. outcome title
-2. summary line
-3. the primary action
-4. secondary actions
-
-Then size controls to serve that order. The single most common failure in this
-project's history is sizing a container first and discovering the content does
-not fit or does not dominate (see UI_KNOWN_FAILURES: oversized panel, control
-geometry). Panels support content; content does not fill panels.
-
-### 6. Build the structural layout
-
-Factors to fix before styling:
-
-- **Anchors.** Decide per element whether it belongs to the viewport edge, the
-  viewport centre, or a parent panel. Anchored controls are positioned with
-  `offset_*`, not `position` — assigning `position` on an anchored Control is
-  re-derived against the anchor and can push it off-screen.
-- **Insets.** Keep essential HUD inside the 20px viewport inset from
-  UI_VISUAL_RULES.
-- **Stacking.** Lay out stacks cumulatively from each row's own height rather
-  than assuming a fixed pitch, so a row that grows does not overlap its
-  neighbour.
-- **Reserve** space for the modal's header and for the tallest state it can be
-  in, not the state you are currently looking at.
-
-Then render it once with placeholder text to see the bare structure before any
-art is applied.
-
-### 7. Apply project assets
-
-Use `TinySwordsUI` helpers rather than constructing StyleBoxes inline. For
-stretchable sheets, establish the real tile geometry **by measurement** before
-writing margins — several sheets in this pack have irregular strides, per-axis
-offsets, short final rows, or fully transparent middle tiles. See the measured
-tables in UI_ASSET_GUIDE.md and the failure entries on nine-patch geometry.
-
-### 8. Typography and Chinese readability pass
-
-The entire player-facing UI is Chinese. Check:
-
-- The size floors in UI_VISUAL_RULES (16px hints, 18px labels, 20px body and
-  buttons, 32px modal titles).
-- Contrast against the actual surface. The project's modals use the dark
-  `SpecialPaper` slate, which takes warm light ink (`#f7edcf`); dark ink is only
-  correct on a genuinely light surface.
-- The project has **no bundled font**; the Godot default theme is used. There is
-  no bold variant, so emphasis must come from size, colour, or position.
-- HUD text sitting directly on the world needs an outline, because the ground
-  behind it changes.
-- Longest expected label per component, per UI_VISUAL_RULES layout safety.
-
-### 9. Pixel-scale and texture pass
-
-- `texture_filter = TEXTURE_FILTER_NEAREST` on every pixel-art texture.
-- Do not scale pixel art to fractional sizes; pick one integer-ish scale per
-  family and keep it consistent.
-- Preserve aspect ratio for icons and sprites; only stretchable sheets may
-  stretch.
-- Do not stretch a complete raster when the pack supplies edge, center, and
-  corner pieces.
-
-### 10. Runtime screenshot
-
-Capture the real rendered result with the project harness:
-
-```powershell
-.\tools\capture_visual_qa.ps1 -Target <target> -Output res://screenshots/visual_qa/<name>.png
+```text
+Inspect
+-> Define the affected UI state and contracts
+-> Plan the evidence
+-> Create or repair
+-> Capture the target state
+-> Inspect the rendered pixels
+-> Fix the cause
+-> Capture and compare
+-> Run the smallest affected regression
 ```
 
-Targets and their captured states are listed in
-[Visual QA](../visual_qa.md). Add a new target when a state you changed has none
-— a UI state with no capture target cannot be visually QA'd, and this project has
-already shipped one such defect.
+A screenshot of the affected state is the default visual test. Reaching that
+state by playing the whole game is not required unless the route or gameplay
+transition is part of the change.
 
-The harness reports a non-zero exit even on success because it re-raises Godot's
-stderr; judge success by the PNG being written and by its contents.
+## Core principles
 
-### 11. Visual critique
+These principles keep visual work fast enough to repeat and strict enough to
+catch real defects.
 
-Open the PNG and describe what is actually there, not what the code says should
-be there. Cover at least the checklist in step 13. State concrete observations
-with positions, sizes, and contrast — "buttons span roughly 45% of the panel
-width and leave a wide margin" is useful; "looks fine" is not.
+- Treat rendered pixels as the source of truth. A `Control` rect, anchor, or
+  minimum size does not prove where a textured frame or its visible face paints.
+- Separate three questions: "Does it look right?", "Does the UI interaction
+  work?", and "Does the gameplay flow still work?"
+- Stage visual states directly and deterministically. Test the real transition
+  separately when that transition changed.
+- Capture the full viewport for context. Add a crop only when precise pixel
+  measurement is useful.
+- Reuse measured project components and assets before creating another styling
+  path.
+- Change one visual cause at a time, then recapture the same target.
+- Do not use a flaky or unrelated playthrough as evidence for a visual change.
 
-### 12. Fix
+## Choose the test scope first
 
-Fix the cause, not the symptom. Adjusting a constant until the picture happens to
-look right is how this project accumulated five separate attempts at one
-alignment bug. When the rendered result disagrees with your model of the layout,
-**measure the rendered pixels** before changing anything (see the measurement
-recipe below).
+Before editing, classify every contract the change can affect. Run the union of
+the matching rows after the visual loop.
 
-### 13. Screenshot again, and compare
+| Change scope | Required evidence |
+| --- | --- |
+| Color, spacing, font position, icon size, or decoration | Before and after captures of the affected state |
+| Hover, focus, pressed, selected, or disabled styling | Captures of the affected visual states |
+| Shared panel, bar, button, or `ActionRow` | Isolated component states plus captures of each materially affected screen |
+| Button input, focus order, keyboard navigation, or signals | Target capture plus the smallest UI interaction smoke test |
+| HUD value binding, affordability, inventory count, or translated text | Representative state captures plus the relevant data-binding smoke test |
+| Modal visibility, pause state, shop purchase, result flow, or scene navigation | Target capture plus the matching integration smoke test |
+| Broad gameplay progression, save behavior, or release readiness | Relevant integration tests and a full playthrough |
 
-Re-capture with a distinct filename and compare against the previous capture.
-Repeat 11–13 until the critique is clean. Do not batch multiple visual changes
-into one capture — you will not know which one helped.
+Do not run ballistics, collision, enemy, or full-run suites for an unrelated
+visual-only edit. Run the full suite at milestones, before release, or when a
+shared gameplay contract actually changed.
 
-### 14. Regression test
+## Prepare the task
 
-Run the harnesses that cover the affected UI. The full set is currently eight
-suites:
+Preparation defines the intended player-facing result and the proof you will
+collect.
+
+1. State the screen's purpose, primary action, and reading order.
+2. Name the exact states affected, including normal, focus, disabled, empty,
+   full, unaffordable, or long-text variants when relevant.
+3. Identify the implementation owner:
+   - `scripts/ui/run_ui.gd` owns the roguelite HUD, menu, and modal flow.
+   - `scripts/ui/game_ui.gd` owns the classic adventure HUD and modal flow.
+   - `scripts/ui/tiny_swords_ui.gd` owns shared style construction.
+   - `scripts/ui/tiny_bar.gd` owns health and stamina bar rendering.
+   - `scripts/ui/action_row.gd` owns rich modal actions.
+4. Read the matching visual rules, known failures, and asset measurements.
+5. Inspect existing call sites before changing a shared component.
+6. Write the planned capture targets and selective tests in
+   `docs/CURRENT_TASK.md` for substantial work.
+
+Both UI roots are built in code, while their `.tscn` files are thin
+`CanvasLayer` wrappers. Extend that convention unless a deliberate architecture
+change has been approved.
+
+## Create a new UI
+
+Use this procedure when you add a screen, overlay, HUD group, or reusable
+component.
+
+1. **Define the hierarchy.** List the order in which the player must notice the
+   title, state, primary action, secondary action, and supporting text.
+2. **Choose real assets.** Use [UI Asset Guide](UI_ASSET_GUIDE.md) to select a
+   panel, button, bar, and icon that match the role. Confirm the exact path and
+   native geometry.
+3. **Build the structure.** Establish anchors, viewport ownership, cumulative
+   stack layout, content padding, and the tallest supported state before adding
+   decoration.
+4. **Size from content and painted geometry.** Derive container height from
+   child content and explicit padding. Do not infer usable space from the
+   `Control` size alone.
+5. **Apply shared styles.** Use `TinySwordsUI`, `TinyBar`, and `ActionRow` instead
+   of building inline variants.
+6. **Add behavior.** Wire signals, focus order, escape behavior, and disabled
+   states without coupling presentation to unrelated gameplay systems.
+7. **Check Chinese text.** Use the longest realistic labels, correct wrapping,
+   readable line spacing, complete glyphs, and contrast against the rendered
+   surface.
+8. **Preserve pixel art.** Use nearest filtering, integer scales where
+   practical, correct aspect ratio, and only stretch assets whose measured
+   construction supports it.
+9. **Add a deterministic capture target.** Stage the exact UI state with fixed
+   data and freeze or stabilize animation before capture.
+10. **Run the visual loop.** Capture, inspect, fix, and compare before running
+    the selective tests from the scope table.
+
+Do not postpone the capture target until the end. A new state that cannot be
+captured cannot be visually verified during development.
+
+## Repair an existing UI
+
+Use this procedure when a screenshot shows clipping, alignment, hierarchy,
+contrast, scaling, or state presentation problems.
+
+1. **Reproduce the exact state.** Capture a baseline with a stable target and a
+   distinct `_before` filename.
+2. **Describe the visible defect.** Name the object, state, direction, and
+   approximate magnitude. "The label reads 10 pixels low on the blue face" is
+   actionable; "alignment feels off" is not.
+3. **Match known failures.** Check
+   [UI Known Failures](UI_KNOWN_FAILURES.md) before inventing a fix.
+4. **Identify the responsible layer.** Decide whether the cause is asset
+   geometry, shared component layout, screen composition, text metrics, state
+   binding, or capture staging.
+5. **Measure before nudging.** If code geometry and the screenshot disagree,
+   measure the rendered silhouette and usable content plane at several sizes.
+6. **Fix the narrowest shared cause.** Change a shared component only when every
+   caller needs the same correction. Keep screen-specific composition in its
+   screen owner.
+7. **Capture the same state again.** Use an `_after` filename and compare against
+   the baseline at the same resolution and state.
+8. **Test affected contracts.** Run only the interaction or integration checks
+   selected before editing.
+
+If two positional adjustments fail to converge, stop changing offsets and
+remeasure the asset. Repeated nudges usually mean the wrong geometry is being
+centered.
+
+## Design capture targets
+
+A capture target is a deterministic visual fixture, not a substitute for every
+gameplay test. It must create the state quickly enough to support repeated
+iteration.
+
+A reliable target must:
+
+- instantiate the real screen or game scene;
+- use fixed representative data;
+- enter the requested state through a public method or a small staging hook;
+- wait for layout and rendering to settle;
+- freeze movement or animation when it would make comparison noisy;
+- capture the full 1280 by 720 viewport; and
+- write to `screenshots/visual_qa/`.
+
+For a visual-only task, stage the state directly. For a transition change, keep
+the direct target for visual proof and add a small test that performs the real
+transition. Do not make visual QA depend on killing enemies, earning currency,
+or finishing unrelated rooms.
+
+Capture only the variants the change can affect. Common variants include:
+
+- normal, focused, pressed, and disabled buttons;
+- empty, partial, and full bars;
+- affordable and unaffordable shop actions;
+- short and longest realistic Chinese text;
+- HUD shown, HUD hidden, and modal-over-HUD states; and
+- single-line and two-line `ActionRow` content.
+
+The full viewport is mandatory because a local crop cannot reveal collisions
+with the HUD, world, screen edge, or another overlay. Use a crop in addition to
+the viewport when measuring a component's pixels.
+
+Run the current harness with:
 
 ```powershell
-foreach ($t in @("smoke_game","playthrough","ballistics","roguelite_smoke",
-                 "roguelite_playthrough","collision_smoke","new_features_smoke",
-                 "upgrade_effects_smoke")) {
-  & $godot --path . --script "res://tests/$t.gd"
-}
+.\tools\capture_visual_qa.ps1 -Target <target> `
+  -Output res://screenshots/visual_qa/<target>_before.png
 ```
 
-`new_features_smoke` asserts HUD translation, and `smoke_game` /
-`roguelite_smoke` assert the menu, pause, shop, and result flows. If a UI change
-renames or removes a member those tests touch, update the test in the same
-change.
+A clean capture writes a fresh PNG and completes without an unexplained process
+failure. If the PNG exists but the wrapper reports an error, inspect and
+classify stderr before calling the run verified. Do not treat a stale PNG as
+evidence.
 
-`roguelite_playthrough` is flaky (random wave variants) — a single failure there
-is not necessarily caused by a UI change; re-run before investigating.
+## Inspect the rendered result
 
----
+Review the image as a player would see it, then inspect local geometry. Record
+specific observations before editing again.
 
-## Measuring the rendered result
+Check the following concerns when they apply:
 
-When the screen disagrees with the code, do not adjust constants by feel. Instead:
+- reading order and visual hierarchy;
+- prominence of the primary action;
+- Chinese glyph coverage, wrapping, clipping, and line spacing;
+- text contrast against the actual rendered surface;
+- optical centering on the usable face of beveled or extruded art;
+- consistent gaps, padding, and viewport insets;
+- overlap between HUD groups, panels, and world objects;
+- correct normal, focus, pressed, selected, and disabled states;
+- icon meaning, scale, aspect ratio, and pixel sharpness;
+- bar appearance at empty, partial, and full values;
+- HUD visibility behind pause, shop, reward, win, and death overlays; and
+- consistency with the project's Tiny Swords visual language.
 
-1. Render the control **in isolation** on a contrasting flat background, with no
-   text, so only the frame/art is visible.
-2. Repeat at **several sizes**. A single size cannot separate a constant from a
-   ratio; this project mis-derived the button frame three times by measuring one
-   height.
-3. Scan the PNG for the known fill colour to find the painted band, and for the
-   label ink colour to find the glyph rows.
-4. Only then write the constant, and note the measurement in a comment.
+"Looks fine" is not a review result. State what was inspected and why the image
+passes or what concrete problem remains.
 
-Worked examples of this paying off, and of skipping it going wrong, are in
-[UI_KNOWN_FAILURES.md](UI_KNOWN_FAILURES.md).
+## Measure rendered geometry
 
----
+When a textured control disagrees with its declared rectangle, distinguish
+three different bounds:
+
+1. **Control rect:** the logical input and layout rectangle.
+2. **Painted silhouette:** every visible pixel, including outlines, shadows, and
+   lower extrusion.
+3. **Usable content plane:** the visible face where text and icons must appear.
+
+The recent expedition button fix demonstrated why this distinction matters.
+Centering on the `Control` rect was wrong, and centering on the full painted
+silhouette still read low because the lower extrusion is depth decoration.
+`ActionRow` first models the measured silhouette with `ART_ABOVE` and
+`ART_BELOW`, then uses `FRONT_FACE_TEXT_OFFSET_Y` to center its labels on the
+front-facing plane.
+
+Use this measurement procedure:
+
+1. Render the component without text on a contrasting flat background.
+2. Render it at three or more representative sizes.
+3. Include every affected state, especially regular and pressed art.
+4. Measure the painted top, bottom, left, and right extents.
+5. Mark the usable face after excluding shadow, bevel, and extrusion.
+6. Add text and measure the glyph bounds against that face.
+7. Derive constants from all samples, then document what each constant models.
+8. Recheck the component in a real full-screen capture.
+
+Do not reuse an optical offset on another asset merely because the controls have
+the same logical size.
+
+## Run selective regression
+
+Visual inspection and functional tests answer different questions. Use the
+smallest existing harness that covers the contract you changed.
+
+Current examples include:
+
+- `tests/smoke_game.gd` for classic menu, modal, and adventure UI flow;
+- `tests/roguelite_smoke.gd` for roguelite menu, pause, shop, reward, and result
+  flow; and
+- `tests/new_features_smoke.gd` for affected HUD translation or data bindings.
+
+Run playthrough suites when progression or navigation changed, or as a milestone
+gate. A known flaky playthrough must not gate an unrelated visual edit. If a
+relevant test fails, reproduce the failure before deciding it is unrelated.
+
+When you rename or remove a member used by a relevant test, update that test in
+the same change.
 
 ## UI quality gate
 
-A significant UI screen is complete only when every line passes. Record any
-deliberate exception in the task notes.
+A UI task is complete when every applicable line below has evidence. Mark
+non-applicable items in the task notes rather than running unrelated tests.
 
-- [ ] Visual hierarchy is clear — the intended first thing to read is the first
-      thing the eye goes to
-- [ ] Primary action is obvious
-- [ ] Chinese text is fully readable against its actual surface
-- [ ] No missing glyphs (no tofu boxes)
-- [ ] No accidental overlaps between HUD groups, text, and panels
-- [ ] No clipped text at either end of a label or button
-- [ ] Buttons are not unnaturally stretched
-- [ ] Decorative panels do not dominate their content
-- [ ] Existing project assets were reused where appropriate
-- [ ] Pixel-art assets are not blurred (nearest filtering, no fractional scale)
-- [ ] Asset aspect ratios are preserved
-- [ ] UI is consistent with the game's art direction
-- [ ] Gameplay HUD does not appear on inappropriate menu screens
-- [ ] A runtime screenshot has been captured and visually reviewed
-- [ ] Relevant existing UI still works (regression suite run)
+- [ ] The affected state has a deterministic capture target.
+- [ ] A fresh full-viewport screenshot was inspected.
+- [ ] Before and after captures use the same target, resolution, and state.
+- [ ] The reading order and primary action are clear.
+- [ ] Chinese text is readable, complete, and unclipped.
+- [ ] Text and icons sit on the intended painted content plane.
+- [ ] No accidental overlap, overflow, or screen-edge collision is visible.
+- [ ] Pixel art remains sharp and keeps its intended proportions.
+- [ ] Relevant interaction states were inspected.
+- [ ] Shared-component callers affected by the change were checked.
+- [ ] The smallest relevant interaction or integration test passed.
+- [ ] No persistent parser, runtime, resource, or signal error remains.
+- [ ] Deliberate visual trade-offs and known limitations are recorded.
 
----
+Do not require a full-game playthrough for a visual-only task.
 
-## When to redesign instead of adjust
+## Decide when to redesign
 
-If the critique shows the hierarchy itself is wrong — the panel dominates, the
-primary action is not legible, content does not fit the container's proportions —
-**restructure the layout** rather than nudging positions. This project's own
-history shows a layout that received five positional fixes for one alignment
-symptom before the actual cause (the art does not paint at the Control's rect)
-was measured. Positional fixes on a wrong composition do not converge.
+Redesign the layout when the hierarchy or proportions are wrong. Continue with
+a local repair when the composition is sound and one measured component is
+wrong.
+
+Typical redesign signals include a panel that dominates its content, actions
+that cannot fit the asset's usable face, an unclear primary action, or repeated
+offset fixes that break another state. Positional tweaks do not repair a wrong
+composition.
 
 ## Related documents
 
-- [Visual QA](../visual_qa.md) — capture targets and how to add one.
-- [UI Known Failures](UI_KNOWN_FAILURES.md) — the specific defects not to repeat.
-- [UI Asset Guide](UI_ASSET_GUIDE.md) — measured inventory of usable assets.
-- [UI Visual Rules](../art/UI_VISUAL_RULES.md) — the target look.
-- [Asset Usage Rules](../art/ASSET_USAGE_RULES.md) — provenance and modification
-  policy for third-party sources.
+Use these documents while following this workflow:
+
+- [Visual QA](../visual_qa.md) describes the capture harness and target list.
+- [UI Known Failures](UI_KNOWN_FAILURES.md) maps visible symptoms to verified
+  causes.
+- [UI Asset Guide](UI_ASSET_GUIDE.md) records measured asset geometry.
+- [UI Visual Rules](../art/UI_VISUAL_RULES.md) defines the target visual
+  language.
+- [Asset Usage Rules](../art/ASSET_USAGE_RULES.md) defines provenance and
+  third-party asset policy.

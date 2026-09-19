@@ -34,26 +34,53 @@ focused on the current vertical slice.
 
 ## UI Development
 
-For any significant UI, HUD, menu, dialogue, shop, or visual-interface task, read
-and apply:
+For significant UI, HUD, menu, dialogue, shop, or interface work, read and
+apply:
 
-- `docs/art/UI_VISUAL_RULES.md` — what the UI should look like
-- `docs/ui/UI_WORKFLOW.md` — how to build it, and the quality gate
-- `docs/ui/UI_KNOWN_FAILURES.md` — defects this project already shipped once
-- `docs/ui/UI_ASSET_GUIDE.md` — measured inventory of usable assets
+- `docs/art/UI_VISUAL_RULES.md` for visual language and hierarchy;
+- `docs/ui/UI_WORKFLOW.md` for creation, repair, capture, and test selection;
+- `docs/ui/UI_KNOWN_FAILURES.md` for project-specific failure diagnosis; and
+- `docs/ui/UI_ASSET_GUIDE.md` for measured reusable assets.
 
-Prefer existing assets from `asset/UI Elements/UI Elements` and
-`asset/Shikashi's Fantasy Icons Pack v2` over default Godot controls,
-`ColorRect` panels, or placeholder icons.
+Use existing assets from `asset/UI Elements/UI Elements` and
+`asset/Shikashi's Fantasy Icons Pack v2` before default Godot controls,
+`ColorRect` panels, or placeholder icons. Inspect the exact file and measured
+geometry before use.
 
-A Control's declared geometry is not what appears on screen. Do not size panels,
-buttons, or labels from `size`, `minimum_size`, or a computed rect alone, and do
-not declare UI finished because it loads, has nodes, responds to input, or logs
-no errors. Significant UI work must include a runtime screenshot captured with
-`tools/capture_visual_qa.ps1` and visually reviewed against the quality gate in
-`UI_WORKFLOW.md`.
+Treat rendered pixels as the source of truth. Distinguish the logical `Control`
+rect, the complete painted silhouette, and the usable front-facing content
+plane. Text on beveled or extruded art must be centered on the content plane,
+not blindly on the rect or full shadowed silhouette.
 
-Treat these documents as persistent project rules.
+Use this default UI loop:
+
+```text
+Inspect
+-> Select affected states and contracts
+-> Implement
+-> Capture the target UI state
+-> Inspect rendered pixels
+-> Fix the measured cause
+-> Recapture and compare
+-> Run the smallest affected regression
+```
+
+For visual-only changes, a deterministic target capture and visual comparison
+are the default verification. Do not play through the whole game to reach a UI
+state. Add a focused UI smoke test when input, focus, signals, data binding,
+pause state, purchases, modal visibility, or scene navigation changes. Run a
+full playthrough only when broad progression changed or for milestone and
+release validation.
+
+Capture the full viewport for context and add a crop only for measurement.
+Check affected normal, focus, pressed, disabled, empty, full, long-Chinese-text,
+and affordability states when relevant. Shared components require isolated
+component coverage and captures of materially affected screens.
+
+A UI task is not complete because it loads or logs no errors. It requires a
+fresh rendered capture, a concrete visual review, and the smallest relevant
+functional test. Keep temporary screenshots out of Git unless they are useful
+long-term references.
 
 ## Autonomous Development Workflow
 
@@ -180,4 +207,3 @@ After completing a task, report concisely:
 5. Known issues, if any
 
 Do not provide a long tutorial unless requested.
-
