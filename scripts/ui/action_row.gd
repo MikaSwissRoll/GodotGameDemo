@@ -16,17 +16,20 @@ extends Button
 
 const FRAME_TOP := 24.0
 const FRAME_BOTTOM := 20.0
-## Breathing room so the smaller line does not touch the frame's rounded corners.
-const INSET := 6.0
 
 const NAME_SIZE := 21
 const DESC_SIZE := 17
-const NAME_HEIGHT := 30.0
-const DESC_HEIGHT := 26.0
-const GAP := 3.0
+const NAME_HEIGHT := 28.0
+const DESC_HEIGHT := 23.0
+const GAP := 2.0
 
-## Total height a row needs to show both lines inside the frame.
-const FULL_HEIGHT := FRAME_TOP + NAME_HEIGHT + GAP + DESC_HEIGHT + FRAME_BOTTOM + INSET
+const BLOCK_SINGLE := NAME_HEIGHT
+const BLOCK_DOUBLE := NAME_HEIGHT + GAP + DESC_HEIGHT
+## Measured from the art at five heights (98/110/122/133/150px): the painted inner
+## band is exactly `height - 44`, with 24px of top padding and 20px of bottom
+## padding, both constant because the caps scale with the row. A 125px row paints
+## a 59px band, which holds the 53px two-line block with 6px to spare.
+const FULL_HEIGHT := 125.0
 
 var _name_label: Label
 var _desc_label: Label
@@ -75,10 +78,16 @@ func _make_label(font_size: int) -> Label:
 func _layout() -> void:
     var width := maxf(size.x - 48.0, 1.0)
     var left := (size.x - width) * 0.5
-    var lift := (size.y - FULL_HEIGHT) * 0.5
-    _name_label.position = Vector2(left, FRAME_TOP + INSET * 0.5 + lift)
+    # Center the visible block of lines inside the frame's inner band, which runs
+    # from FRAME_TOP to height - FRAME_BOTTOM. Centering on the row instead leaves
+    # a single-line label (or a two-line one) sitting high in the band.
+    var band_top := FRAME_TOP
+    var band_height := maxf(size.y - FRAME_TOP - FRAME_BOTTOM, 1.0)
+    var block := BLOCK_DOUBLE if _desc_label.visible else BLOCK_SINGLE
+    var top := band_top + (band_height - block) * 0.5
+    _name_label.position = Vector2(left, top)
     _name_label.size = Vector2(width, NAME_HEIGHT)
-    _desc_label.position = Vector2(left, FRAME_TOP + INSET * 0.5 + NAME_HEIGHT + GAP + lift)
+    _desc_label.position = Vector2(left, top + NAME_HEIGHT + GAP)
     _desc_label.size = Vector2(width, DESC_HEIGHT)
 
 

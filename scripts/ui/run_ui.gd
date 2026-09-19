@@ -12,15 +12,16 @@ const EDGE := Color("#c5ab72")
 # Sizes are the Control's declared rect. SpecialPaper's nine-patch fills its rect
 # (the wood sheet leaves transparent corners, which let actions escape the frame),
 # so 700x610 paints ~665x570 and contains the actions with real margin.
-const MODAL_WIDTH := 700.0
-## Two-line action rows are 110px. The tallest stack is four of them on a 120px
-## pitch, which ends at 180 + 330 + 110 = 620, so 700 declares ~665 painted.
-const MODAL_HEIGHT := 700.0
-const MODAL_BUTTON_WIDTH := 560.0
-const MODAL_BUTTON_LEFT := 70.0
-const MODAL_BUTTON_TOP := 180.0
-## A uniform 12px gap between every pair of rows.
-const MODAL_BUTTON_STEP := 120.0
+const MODAL_WIDTH := 690.0
+## The tallest stack is four 125px rows on a 125px pitch, ending at
+## 110 + 375 + 125 = 610. SpecialPaper paints about 0.94 of its declared height,
+## so 660 declares ~620 painted, which fits a 720px viewport with margin.
+const MODAL_HEIGHT := 660.0
+const MODAL_BUTTON_WIDTH := 530.0
+const MODAL_BUTTON_LEFT := 80.0
+const MODAL_BUTTON_TOP := 110.0
+## Rows sit flush so no frame covers the one below it.
+const MODAL_BUTTON_STEP := 125.0
 const MODAL_PAD := 20.0
 # The title and body sit above the first button, so the panel must stay tall
 # enough for them; shrinking purely to the button count overlapped the body.
@@ -281,10 +282,10 @@ func _build_overlay(root: Control) -> void:
     modal_panel.anchor_right = 0.5
     modal_panel.anchor_top = 0.5
     modal_panel.anchor_bottom = 0.5
-    UI.add_icon(modal_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(330, 34), Vector2(40, 40))
-    overlay_title = _label(modal_panel, Vector2(100, 86), Vector2(500, 48), 34)
+    UI.add_icon(modal_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(325, 14), Vector2(40, 40))
+    overlay_title = _label(modal_panel, Vector2(95, 56), Vector2(500, 44), 32)
     overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    overlay_body = _label(modal_panel, Vector2(100, 138), Vector2(500, 40), 20)
+    overlay_body = _label(modal_panel, Vector2(95, 100), Vector2(500, 36), 19)
     overlay_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     overlay_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     overlay_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
