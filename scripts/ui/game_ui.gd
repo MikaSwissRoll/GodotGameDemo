@@ -16,9 +16,9 @@ const INK := Color("#f7edcf")
 const PANEL_COLOR := Color("#26362f", 0.94)
 const EDGE := Color("#c5ab72")
 
-var health_bar: ProgressBar
+var health_bar: TinyBar
 var health_label: Label
-var stamina_bar: ProgressBar
+var stamina_bar: TinyBar
 var stamina_label: Label
 var gold_label: Label
 var quest_label: Label
@@ -149,41 +149,56 @@ func _refresh_shop_buttons() -> void:
 
 
 func _build_hud(root: Control) -> void:
-    var health_panel := _panel(root, Vector2(20, 20), Vector2(330, 145))
-    health_label = _label(health_panel, Vector2(17, 7), Vector2(295, 26), 19)
-    health_bar = _progress_bar(health_panel, Vector2(17, 35), Color("#bf514b"))
-    stamina_label = _label(health_panel, Vector2(17, 72), Vector2(295, 26), 19)
-    stamina_bar = _progress_bar(health_panel, Vector2(17, 100), Color("#d5ae50"))
+    # Classic keeps the 生命 / 精力 numeric labels (the roguelite HUD drops them),
+    # but adopts the same bar art: BigBar for health, SmallBar for stamina.
+    health_label = _label(root, Vector2(20, 20), Vector2(280, 26), 19)
+    health_bar = _bar(root, Vector2(20, 48), "big", 288.0)
+    stamina_label = _label(root, Vector2(20, 104), Vector2(280, 26), 19)
+    stamina_bar = _bar(root, Vector2(20, 132), "small", 232.0)
 
-    var gold_panel := _panel(root, Vector2(-170, 20), Vector2(150, 55))
-    gold_panel.anchor_left = 1.0
-    gold_panel.anchor_right = 1.0
-    UI.add_icon(gold_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(7, 6), Vector2(42, 42))
-    gold_label = _label(gold_panel, Vector2(48, 13), Vector2(92, 28), 20)
+    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(1125, 20), Vector2(40, 40))
+    gold_label = _label(root, Vector2(1171, 26), Vector2(78, 28), 21)
+    gold_label.anchor_left = 1.0
+    gold_label.anchor_right = 1.0
+    gold_label.offset_left = -109.0
+    gold_label.offset_right = -31.0
 
-    var quest_panel := _panel(root, Vector2(-715, 91), Vector2(695, 58))
-    quest_panel.anchor_left = 1.0
-    quest_panel.anchor_right = 1.0
-    UI.add_icon(quest_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(7, 7), Vector2(42, 42))
-    quest_label = _label(quest_panel, Vector2(53, 13), Vector2(625, 32), 18)
+    # Quest readout shares the gold row, to its left, right-aligned so a long
+    # objective grows away from the gold instead of into it.
+    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(844, 20), Vector2(40, 40))
+    quest_label = _label(root, Vector2(892, 26), Vector2(224, 28), 18)
+    quest_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    quest_label.anchor_left = 1.0
+    quest_label.anchor_right = 1.0
+    quest_label.offset_left = -388.0
+    quest_label.offset_right = -164.0
 
-    potion_label = _label(root, Vector2(26, -96), Vector2(660, 30), 18)
-    potion_label.anchor_top = 1.0
-    potion_label.anchor_bottom = 1.0
-    boost_label = _label(root, Vector2(26, -124), Vector2(500, 26), 17)
+    # Potion readout on its own backing so it stays legible over the ground.
+    var pouch := _pouch_panel(root, Vector2(20, -66), Vector2(400, 48))
+    pouch.anchor_top = 1.0
+    pouch.anchor_bottom = 1.0
+    potion_label = _label(pouch, Vector2(14, 10), Vector2(372, 28), 18)
+
+    # Above the pouch, clear of it.
+    boost_label = _label(root, Vector2(20, -96), Vector2(400, 26), 17)
     boost_label.anchor_top = 1.0
     boost_label.anchor_bottom = 1.0
+    boost_label.offset_top = -96.0
+    boost_label.offset_bottom = -70.0
     boost_label.visible = false
 
-    var controls := _label(root, Vector2(26, -55), Vector2(1210, 44), 16)
+    # Right-aligned along the bottom edge, as in the roguelite HUD, so it never
+    # collides with the potion pouch on the left.
+    var controls := _label(root, Vector2(-540, -25), Vector2(500, 25), 16)
+    controls.anchor_left = 1.0
+    controls.anchor_right = 1.0
     controls.anchor_top = 1.0
     controls.anchor_bottom = 1.0
-    controls.text = "WASD 移动  ·  空格／左键挥砍  ·  右键举盾  ·  Shift 冲刺  ·  E 交谈  ·  1／2 使用药水  ·  Esc 暂停"
-    controls.add_theme_color_override("font_color", Color("#26362f"))
-    controls.add_theme_color_override("font_shadow_color", Color("#eee2b5"))
-    controls.add_theme_constant_override("shadow_offset_x", 1)
-    controls.add_theme_constant_override("shadow_offset_y", 1)
-
+    controls.anchor_left = 1.0
+    controls.anchor_right = 1.0
+    controls.anchor_top = 1.0
+    controls.anchor_bottom = 1.0
+    controls.text = "WASD 移动 · 左键挥砍 · 右键举盾 · Shift 冲刺 · E 交谈 · 1／2 药水 · Esc 暂停"
     toast_label = _label(root, Vector2(-400, -170), Vector2(800, 90), 22)
     toast_label.anchor_left = 0.5
     toast_label.anchor_right = 0.5
@@ -193,56 +208,75 @@ func _build_hud(root: Control) -> void:
     toast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     toast_label.visible = false
-    toast_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-    toast_label.add_theme_constant_override("shadow_offset_x", 2)
-    toast_label.add_theme_constant_override("shadow_offset_y", 2)
 
 
-func _progress_bar(parent: Control, at: Vector2, fill: Color) -> ProgressBar:
-    var bar := ProgressBar.new()
+func _bar(parent: Control, at: Vector2, design: String, width: float) -> TinyBar:
+    var bar := TinyBar.new()
+    bar.design = design
     bar.position = at
-    bar.size = Vector2(295, 22)
-    bar.show_percentage = false
-    var bar_back := UI.bar_background_style()
-    var bar_fill := UI.bar_fill_style(fill)
-    bar.add_theme_stylebox_override("background", bar_back)
-    bar.add_theme_stylebox_override("fill", bar_fill)
+    bar.size = Vector2(width, bar.native_height())
     parent.add_child(bar)
     return bar
 
 
+func _pouch_panel(parent: Control, at: Vector2, dimensions: Vector2) -> Panel:
+    var panel := Panel.new()
+    panel.position = at
+    panel.size = dimensions
+    panel.add_theme_stylebox_override("panel", UI.pouch_panel_style())
+    parent.add_child(panel)
+    return panel
+
+
 func _build_overlay(root: Control) -> void:
     overlay = ColorRect.new()
-    overlay.color = Color("#0b1718", 0.72)
+    overlay.color = Color("#0b1718", 0.77)
     overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     root.add_child(overlay)
 
-    overlay_panel = _panel(overlay, Vector2(-275, -235), Vector2(550, 470), true)
+    # SpecialPaper rather than the wood sheet: the wood nine-patch leaves
+    # transparent corners, which let actions escape the frame.
+    overlay_panel = _panel(overlay, Vector2(-350, -305), Vector2(700, 610), false)
     overlay_panel.anchor_left = 0.5
     overlay_panel.anchor_right = 0.5
     overlay_panel.anchor_top = 0.5
     overlay_panel.anchor_bottom = 0.5
+
     var emblem := TextureRect.new()
     emblem.texture = load("res://asset/UI Elements/UI Elements/Icons/Icon_06.png") as Texture2D
+    emblem.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-    emblem.position = Vector2(243, 22)
-    emblem.size = Vector2(64, 64)
+    emblem.position = Vector2(330, 30)
+    emblem.size = Vector2(40, 40)
     overlay_panel.add_child(emblem)
 
-    overlay_title = _label(overlay_panel, Vector2(32, 100), Vector2(486, 53), 35)
+    overlay_title = _label(overlay_panel, Vector2(100, 82), Vector2(500, 48), 34)
     overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    overlay_body = _label(overlay_panel, Vector2(40, 175), Vector2(470, 105), 21)
+    overlay_body = _label(overlay_panel, Vector2(100, 134), Vector2(500, 78), 20)
     overlay_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    overlay_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    overlay_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-    primary_button = _button(overlay_panel, Vector2(150, 314), Vector2(250, 54))
-    secondary_button = _button(overlay_panel, Vector2(150, 382), Vector2(250, 48))
-    tertiary_button = _button(overlay_panel, Vector2(150, 406), Vector2(250, 48))
+    # Three actions on a 94px pitch. The 94px row is what a 20px font's two-line
+    # label plus the stylebox margins actually needs; a shorter declaration is
+    # overridden by the Button's minimum size, which overlaps the rows.
+    primary_button = _button(overlay_panel, Vector2(100, 210), Vector2(500, 94))
+    secondary_button = _button(overlay_panel, Vector2(100, 304), Vector2(500, 94))
+    tertiary_button = _button(overlay_panel, Vector2(100, 398), Vector2(500, 94))
     tertiary_button.visible = false
     primary_button.pressed.connect(_on_primary_pressed)
     secondary_button.pressed.connect(_on_secondary_pressed)
     tertiary_button.pressed.connect(_on_tertiary_pressed)
+
+
+## Actions that abandon or restart the run take the red destructive state, the
+## same rule the roguelite overlays and the main menu's "退出游戏" follow.
+const DANGER_BY_MODE := {
+    "menu": [1],
+    "pause": [1, 2],
+    "game_over": [1],
+    "complete": [1],
+}
 
 
 func _show_overlay(title: String, body: String, primary: String, secondary: String, mode: String, tertiary: String = "") -> void:
@@ -254,8 +288,17 @@ func _show_overlay(title: String, body: String, primary: String, secondary: Stri
     secondary_button.text = secondary
     tertiary_button.text = tertiary
     tertiary_button.visible = not tertiary.is_empty()
-    primary_button.position.y = 276.0 if tertiary_button.visible else 314.0
-    secondary_button.position.y = 341.0 if tertiary_button.visible else 382.0
+    # Center the stack on whatever number of actions is present, on the same
+    # 94px pitch, so two-button modals leave no dead area.
+    var count := 3 if tertiary_button.visible else 2
+    var top := 257.0 - (count - 1) * 47.0
+    primary_button.position.y = top
+    secondary_button.position.y = top + 94.0
+    tertiary_button.position.y = top + 188.0
+    var danger: Array = DANGER_BY_MODE.get(mode, [])
+    UI.apply_button(primary_button, 0 in danger)
+    UI.apply_button(secondary_button, 1 in danger)
+    UI.apply_button(tertiary_button, 2 in danger)
     toast_label.visible = false
     _toast_time = 0.0
     overlay.visible = true
@@ -300,6 +343,11 @@ func _label(parent: Control, at: Vector2, dimensions: Vector2, font_size: int) -
     label.size = dimensions
     label.add_theme_color_override("font_color", INK)
     label.add_theme_font_size_override("font_size", font_size)
+    # The HUD no longer sits on a backing panel, so an outline keeps the text
+    # legible over bright grass and dark terrain alike.
+    label.add_theme_color_override("font_outline_color", Color("#26362f"))
+    label.add_theme_constant_override("outline_size", 4)
+    label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     parent.add_child(label)
     return label
 
@@ -308,7 +356,7 @@ func _button(parent: Control, at: Vector2, dimensions: Vector2) -> Button:
     var button := Button.new()
     button.position = at
     button.size = dimensions
-    button.add_theme_font_size_override("font_size", 22)
+    button.add_theme_font_size_override("font_size", 20)
     UI.apply_button(button)
     parent.add_child(button)
     return button

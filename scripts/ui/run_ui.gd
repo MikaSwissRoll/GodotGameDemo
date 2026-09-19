@@ -13,14 +13,18 @@ const EDGE := Color("#c5ab72")
 # (the wood sheet leaves transparent corners, which let actions escape the frame),
 # so 700x610 paints ~665x570 and contains the actions with real margin.
 const MODAL_WIDTH := 700.0
-const MODAL_HEIGHT := 610.0
+const MODAL_HEIGHT := 660.0
 const MODAL_BUTTON_WIDTH := 500.0
 const MODAL_BUTTON_LEFT := 100.0
 const MODAL_BUTTON_TOP := 180.0
-## 70px rows on an 80px pitch: a uniform 10px gap between every pair, which is
-## what keeps two-line action rows from looking unevenly stacked.
-const MODAL_BUTTON_STEP := 80.0
-const MODAL_BUTTON_HEIGHT := 70.0
+## A two-line action label needs 77px: the 19px font's line box is 27px, so two
+## lines plus the stylebox's 12px top and bottom margins set the Button's minimum
+## size. Declaring less does not shrink it — Godot expands the button downward,
+## overlapping the next row and pushing the last one past the panel's bottom, so
+## the text reads as spilling out of its background. Height matches the minimum
+## and the 87px pitch keeps a uniform 10px gap.
+const MODAL_BUTTON_STEP := 87.0
+const MODAL_BUTTON_HEIGHT := 77.0
 const MODAL_PAD := 20.0
 # The title and body sit above the first button, so the panel must stay tall
 # enough for them; shrinking purely to the button count overlapped the body.
