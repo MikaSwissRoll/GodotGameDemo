@@ -84,16 +84,23 @@ func _make_label(font_size: int) -> Label:
     return label
 
 
+## A Label centres its font's line box, but the glyph ink sits above that box's
+## centre, so a block centred by rect alone renders a few pixels high. Measured on
+## the shipped row: the glyph centre landed 4px above the painted art's centre.
+## Nudging the block down by this much puts the ink on the art's centre line.
+const INK_BIAS := 6.0
+
+
 func _layout() -> void:
     var width := maxf(size.x - 48.0, 1.0)
     var left := (size.x - width) * 0.5
-    # Center the visible block of lines inside the frame's inner band, which runs
+    # Centre the visible block of lines inside the frame's inner band, which runs
     # from FRAME_TOP to height - FRAME_BOTTOM. Centering on the row instead leaves
     # a single-line label (or a two-line one) sitting high in the band.
     var band_top := FRAME_TOP
     var band_height := maxf(size.y - FRAME_TOP - FRAME_BOTTOM, 1.0)
     var block := BLOCK_DOUBLE if _desc_label.visible else BLOCK_SINGLE
-    var top := band_top + (band_height - block) * 0.5
+    var top := band_top + (band_height - block) * 0.5 + INK_BIAS
     _name_label.position = Vector2(left, top)
     _name_label.size = Vector2(width, NAME_HEIGHT)
     _desc_label.position = Vector2(left, top + NAME_HEIGHT + GAP)

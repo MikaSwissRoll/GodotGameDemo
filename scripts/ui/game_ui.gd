@@ -15,6 +15,10 @@ signal shop_closed
 const INK := Color("#f7edcf")
 const PANEL_COLOR := Color("#26362f", 0.94)
 const EDGE := Color("#c5ab72")
+## Overlay action stack: the band rows are laid out in, and the gap between them.
+const MODAL_CONTENT_TOP := 180.0
+const MODAL_CONTENT_HEIGHT := 330.0
+const ROW_GAP := 16.0
 
 var health_bar: TinyBar
 var health_label: Label
@@ -281,7 +285,8 @@ const DANGER_BY_MODE := {
 func _action_row(parent: Control, at: Vector2) -> ActionRow:
     var row := ActionRow.new()
     row.position = at
-    row.size = Vector2(560, ActionRow.FULL_HEIGHT)
+    # Overlay labels are single-line, so the row takes its single-line height.
+    row.size = Vector2(560, ActionRow.SINGLE_HEIGHT)
     UI.apply_button(row)
     parent.add_child(row)
     return row
@@ -301,13 +306,22 @@ func _show_overlay(title: String, body: String, primary: String, secondary: Stri
     _set_row_text(secondary_button, secondary)
     _set_row_text(tertiary_button, tertiary)
     tertiary_button.visible = not tertiary.is_empty()
-    # Center the stack on however many actions are present, on the same 120px
-    # pitch, so two-button modals leave no dead area.
-    var count := 3 if tertiary_button.visible else 2
-    var top := 260.0 - (count - 1) * 60.0
-    primary_button.position.y = top
-    secondary_button.position.y = top + 120.0
-    tertiary_button.position.y = top + 240.0
+    # Lay the visible rows out cumulatively and centre the stack on the panel, so
+    # two-button modals leave no dead area and the taller row height the art needs
+    # is respected rather than assumed.
+    var rows: Array[ActionRow] = [primary_button, secondary_button, tertiary_button]
+    var visible_rows: Array[ActionRow] = []
+    for row in rows:
+        if row.visible:
+            visible_rows.append(row)
+    var total := 0.0
+    for row in visible_rows:
+        total += row.size.y
+    total += ROW_GAP * maxf(visible_rows.size() - 1, 0)
+    var top := (MODAL_CONTENT_HEIGHT - total) * 0.5 + MODAL_CONTENT_TOP
+    for row in visible_rows:
+        row.position.y = top
+        top += row.size.y + ROW_GAP
     var danger: Array = DANGER_BY_MODE.get(mode, [])
     UI.apply_button(primary_button, 0 in danger)
     UI.apply_button(secondary_button, 1 in danger)
