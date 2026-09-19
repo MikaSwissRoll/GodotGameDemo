@@ -47,8 +47,6 @@ signal title_requested
 
 var health_bar: TinyBar
 var stamina_bar: TinyBar
-var health_label: Label
-var stamina_label: Label
 var boost_label: Label
 var gold_label: Label
 var stage_label: Label
@@ -100,13 +98,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func set_health(current: int, maximum: int) -> void:
     health_bar.max_value = maximum
     health_bar.value = current
-    health_label.text = "生命  %d / %d" % [current, maximum]
 
 
 func set_stamina(current: float, maximum: float) -> void:
     stamina_bar.max_value = maximum
     stamina_bar.value = current
-    stamina_label.text = "精力  %d / %d" % [ceili(current), ceili(maximum)]
 
 func set_boost(remaining: float) -> void:
     boost_label.visible = remaining > 0.0
@@ -216,34 +212,39 @@ func _upgrade_button_text() -> String:
 
 
 func _build_hud(root: Control) -> void:
-    # Panel height is the sum of its content: two 28px labels, the BigBar's 44px
-    # frame, the SmallBar's 19px frame, and 10px of padding around and between.
-    var stats := _hud_panel(root, Vector2(20, 20), Vector2(320, 174))
-    health_label = _label(stats, Vector2(16, 10), Vector2(280, 28), 19)
-    health_bar = _bar(stats, Vector2(16, 38), "big")
-    stamina_label = _label(stats, Vector2(16, 92), Vector2(280, 28), 19)
-    stamina_bar = _bar(stats, Vector2(16, 120), "small")
-    boost_label = _label(root, Vector2(20, 200), Vector2(310, 29), 17)
+    # No backing panel and no numeric labels: the art carries the meaning. The
+    # bars stack directly, health above stamina, with the shorter stamina bar
+    # signalling which is which.
+    health_bar = _bar(root, Vector2(20, 20), "big", 288.0)
+    stamina_bar = _bar(root, Vector2(20, 68), "small", 232.0)
+
+    boost_label = _label(root, Vector2(20, 98), Vector2(310, 29), 17)
     boost_label.visible = false
 
-    var gold_panel := _hud_panel(root, Vector2(-155, 20), Vector2(135, 52))
-    gold_panel.anchor_left = 1.0
-    gold_panel.anchor_right = 1.0
-    UI.add_icon(gold_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(8, 6), Vector2(40, 40))
-    gold_label = _label(gold_panel, Vector2(54, 12), Vector2(78, 28), 21)
+    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(1125, 20), Vector2(40, 40))
+    gold_label = _label(root, Vector2(1171, 26), Vector2(78, 28), 21)
+    gold_label.anchor_left = 1.0
+    gold_label.anchor_right = 1.0
+    gold_label.offset_left = -109.0
+    gold_label.offset_right = -31.0
 
-    var stage_panel := _hud_panel(root, Vector2(-560, 82), Vector2(540, 52))
-    stage_panel.anchor_left = 1.0
-    stage_panel.anchor_right = 1.0
-    UI.add_icon(stage_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_05.png", Vector2(8, 6), Vector2(40, 40))
-    stage_label = _label(stage_panel, Vector2(56, 12), Vector2(468, 28), 20)
+    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_05.png", Vector2(720, 82), Vector2(40, 40))
+    stage_label = _label(root, Vector2(768, 88), Vector2(470, 28), 20)
+    stage_label.anchor_left = 1.0
+    stage_label.anchor_right = 1.0
+    stage_label.offset_left = -512.0
+    stage_label.offset_right = -42.0
 
-    # Sized to its two short lines so it no longer reads as an empty trough.
-    var bottom := _hud_panel(root, Vector2(20, -88), Vector2(690, 68))
-    bottom.anchor_top = 1.0
-    bottom.anchor_bottom = 1.0
-    potion_label = _label(bottom, Vector2(16, 10), Vector2(658, 24), 18)
-    build_label = _label(bottom, Vector2(16, 36), Vector2(658, 22), 17)
+    potion_label = _label(root, Vector2(20, -86), Vector2(658, 24), 18)
+    potion_label.anchor_top = 1.0
+    potion_label.anchor_bottom = 1.0
+    potion_label.offset_top = -86.0
+    potion_label.offset_bottom = -62.0
+    build_label = _label(root, Vector2(20, -58), Vector2(658, 22), 17)
+    build_label.anchor_top = 1.0
+    build_label.anchor_bottom = 1.0
+    build_label.offset_top = -58.0
+    build_label.offset_bottom = -36.0
 
     var controls := _label(root, Vector2(-520, -45), Vector2(500, 31), 16)
     controls.anchor_left = 1.0
@@ -429,21 +430,16 @@ func _panel(parent: Control, at: Vector2, size: Vector2, wood: bool = false) -> 
     return panel
 
 
-func _hud_panel(parent: Control, at: Vector2, size: Vector2) -> Panel:
-    var panel := Panel.new()
-    panel.position = at
-    panel.size = size
-    panel.add_theme_stylebox_override("panel", UI.hud_panel_style())
-    parent.add_child(panel)
-    return panel
-
-
 func _label(parent: Control, at: Vector2, size: Vector2, font_size: int) -> Label:
     var label := Label.new()
     label.position = at
     label.size = size
     label.add_theme_color_override("font_color", INK)
     label.add_theme_font_size_override("font_size", font_size)
+    # The HUD has no backing panel, so an outline keeps the text legible over
+    # both bright grass and dark terrain.
+    label.add_theme_color_override("font_outline_color", Color("#26362f"))
+    label.add_theme_constant_override("outline_size", 4)
     # Center the line box inside its slot. Top-aligned text sat against the
     # panel's frame, so glyphs read as escaping the box they belong to.
     label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -451,7 +447,7 @@ func _label(parent: Control, at: Vector2, size: Vector2, font_size: int) -> Labe
     return label
 
 
-func _bar(parent: Control, at: Vector2, design: String) -> TinyBar:
+func _bar(parent: Control, at: Vector2, design: String, width: float) -> TinyBar:
     var bar := TinyBar.new()
     # Setting `design` also applies that design's default fill tint; an explicit
     # assignment here would be redundant and is avoided so the sheet owns its look.
@@ -459,7 +455,7 @@ func _bar(parent: Control, at: Vector2, design: String) -> TinyBar:
     bar.position = at
     # Each design is used at its native frame height so the caps stay crisp;
     # only the width varies, and only the middle tile repeats.
-    bar.size = Vector2(288, bar.native_height())
+    bar.size = Vector2(width, bar.native_height())
     parent.add_child(bar)
     return bar
 

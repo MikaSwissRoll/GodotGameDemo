@@ -47,10 +47,15 @@ scripts, scenes, and assets.
    painted 41px; 135x52 painted 25px; 320x176 painted 149px; 540x53 painted 26px)
    and started ~20px below the declared top. Every HUD label therefore sat
    outside its own frame, which is the reported "the frame does not contain the
-   text". The HUD boxes are only 50-180px tall, so the frame's fixed corner caps
-   dominate them. HUD panels now use `TinySwordsUI.hud_panel_style()`, a flat
-   slate box with a gold border that draws exactly at the declared rect. The
-   large overlays keep the textured nine-patch, where it renders correctly.
+   text". The fix was to stop backing the HUD with a panel at all: the bars carry
+   their own wooden frames, and the remaining HUD text sits directly on the world
+   with a dark outline. The large overlays keep the textured nine-patch, where it
+   renders correctly.
+
+   The health/stamina numeric labels (`生命 100 / 100`, `精力 90 / 100`) were then
+   removed entirely, and the bars stack directly: health `20,20` at 288px wide,
+   stamina `20,68` at 232px. The shorter stamina bar is what distinguishes it,
+   since neither is labelled.
 
 2. **Labels were top-aligned inside their slot.** Godot's default
    `VERTICAL_ALIGNMENT_TOP` put the line box against the top of each label, so

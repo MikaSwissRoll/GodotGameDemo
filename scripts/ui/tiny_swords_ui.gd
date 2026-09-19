@@ -41,19 +41,6 @@ static func ribbon_style(color_index: int = 0) -> StyleBoxTexture:
     return style
 
 
-static func hud_panel_style() -> StyleBoxFlat:
-    # The HUD boxes are only 50-180px tall. SpecialPaper's nine-patch does not
-    # paint its frame at the Control's rect at those sizes (measured: a 68px
-    # panel painted 41px, offset ~20px down), which left every label outside its
-    # frame. A flat box draws exactly at the declared rect, so text stays inside.
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color("#525b66")
-    style.border_color = Color("#c5ab72")
-    style.set_border_width_all(2)
-    style.set_corner_radius_all(3)
-    return style
-
-
 static func bar_background_style() -> StyleBoxTexture:
     var style := StyleBoxTexture.new()
     style.texture = _horizontal_patch(BAR_BASE, 128)
