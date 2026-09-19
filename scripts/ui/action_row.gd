@@ -27,9 +27,16 @@ const BLOCK_SINGLE := NAME_HEIGHT
 const BLOCK_DOUBLE := NAME_HEIGHT + GAP + DESC_HEIGHT
 ## Measured from the art at five heights (98/110/122/133/150px): the painted inner
 ## band is exactly `height - 44`, with 24px of top padding and 20px of bottom
-## padding, both constant because the caps scale with the row. A 125px row paints
-## a 59px band, which holds the 53px two-line block with 6px to spare.
+## padding, both constant because the caps scale with the row.
+##
+## A row is therefore only as tall as its own content needs, which keeps modals
+## with single-line actions compact while two-line rows still clear both caps.
+const SINGLE_HEIGHT := 82.0
 const FULL_HEIGHT := 125.0
+
+
+static func height_for(has_description: bool) -> float:
+    return FULL_HEIGHT if has_description else SINGLE_HEIGHT
 
 var _name_label: Label
 var _desc_label: Label
@@ -58,6 +65,8 @@ func set_row(name_text: String, desc_text: String) -> void:
     _name_label.text = name_text
     _desc_label.text = desc_text
     _desc_label.visible = not desc_text.is_empty()
+    # A row with no effect line only needs one line's worth of frame.
+    size.y = height_for(not desc_text.is_empty())
     _layout()
 
 

@@ -13,15 +13,15 @@ const EDGE := Color("#c5ab72")
 # (the wood sheet leaves transparent corners, which let actions escape the frame),
 # so 700x610 paints ~665x570 and contains the actions with real margin.
 const MODAL_WIDTH := 690.0
-## The tallest stack is four 125px rows on a 125px pitch, ending at
-## 110 + 375 + 125 = 610. SpecialPaper paints about 0.94 of its declared height,
-## so 660 declares ~620 painted, which fits a 720px viewport with margin.
-const MODAL_HEIGHT := 660.0
+## The tallest stack is four two-line rows, laid out and measured by _stack_height();
+## this is only the seed size, since _show() re-fits the panel every time.
+const MODAL_HEIGHT := 620.0
 const MODAL_BUTTON_WIDTH := 530.0
 const MODAL_BUTTON_LEFT := 80.0
 const MODAL_BUTTON_TOP := 110.0
-## Rows sit flush so no frame covers the one below it.
-const MODAL_BUTTON_STEP := 125.0
+## Gap between rows. A two-line row is 43px taller than a single-line one, so a
+## larger gap keeps the visual rhythm even when a stack mixes both.
+const MODAL_ROW_GAP := 16.0
 const MODAL_PAD := 20.0
 # The title and body sit above the first button, so the panel must stay tall
 # enough for them; shrinking purely to the button count overlapped the body.
@@ -292,7 +292,7 @@ func _build_overlay(root: Control) -> void:
     overlay_body.add_theme_color_override("font_color", INK)
     # Two-line action rows, evenly gap-separated and contained by the panel frame.
     for index in 4:
-        var button := _action_row(modal_panel, Vector2(MODAL_BUTTON_LEFT, MODAL_BUTTON_TOP + index * MODAL_BUTTON_STEP))
+        var button := _action_row(modal_panel, Vector2(MODAL_BUTTON_LEFT, MODAL_BUTTON_TOP))
         button.pressed.connect(_on_button_pressed.bind(index))
         buttons.append(button)
 
@@ -385,21 +385,30 @@ func _show(title: String, body: String, labels: Array[String], next_mode: String
             # Re-apply per state: the same row instance is reused across overlay
             # modes, so the destructive style must be set and cleared.
             UI.apply_button(row, index in danger)
-    # Fit the panel to the action count. A fixed height left a large dead area
-    # under two-button results such as "远征失败".
+    # Fit the panel to the action count and to each row's own height, so modals
+    # whose actions carry no effect line stay compact. A fixed height left a large
+    # dead area under two-button results such as "远征失败".
     # Center-anchored, so offsets are relative to the viewport centre; assigning
     # `position` here would be re-derived against the anchor and push the panel
     # off-screen, so set the offsets that `position` is computed from.
-    var needed := maxf(
-        MODAL_BUTTON_TOP + MODAL_BUTTON_STEP * (labels.size() - 1) + ActionRow.FULL_HEIGHT,
-        MODAL_MIN_HEIGHT
-    ) + MODAL_PAD
+    var needed := maxf(_stack_height(labels), MODAL_MIN_HEIGHT) + MODAL_PAD
     modal_panel.offset_left = -MODAL_WIDTH * 0.5
     modal_panel.offset_right = MODAL_WIDTH * 0.5
     modal_panel.offset_top = -needed * 0.5
     modal_panel.offset_bottom = needed * 0.5
     overlay.visible = true
     buttons[0].grab_focus()
+
+
+## Lay the visible rows out from MODAL_BUTTON_TOP with a small gap between them,
+## and return the total height they occupy.
+func _stack_height(labels: Array[String]) -> float:
+    var y := MODAL_BUTTON_TOP
+    for index in labels.size():
+        var row: ActionRow = buttons[index]
+        row.position.y = y
+        y += row.size.y + MODAL_ROW_GAP
+    return y - MODAL_ROW_GAP
 
 
 func _on_button_pressed(index: int) -> void:
