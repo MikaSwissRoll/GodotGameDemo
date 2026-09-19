@@ -41,6 +41,27 @@ static func ribbon_style(color_index: int = 0) -> StyleBoxTexture:
     return style
 
 
+## Surface choice for modal panels, measured from the pack rather than assumed:
+##   SpecialPaper  the only sheet whose 3x3 tiles render a clean solid panel.
+##   RegularPaper  its middle tile row is transparent and the corner tiles carry
+##                 baked-in padding, so it tiles as separated cards, not a surface.
+##   Banner        the scroll curl repeats as visible stripes when tiled.
+const REGULAR_PAPER := "res://asset/UI Elements/UI Elements/Papers/RegularPaper.png"
+## Text colours for the dark SpecialPaper surface.
+const INK_CREAM := Color("#f7edcf")
+const INK_CREAM_BRIGHT := Color("#fff1cf")
+
+
+static func paper_panel_style() -> StyleBoxTexture:
+    var style := StyleBoxTexture.new()
+    style.texture = _nine_patch(SPECIAL_PAPER, 128)
+    style.texture_margin_left = 52.0
+    style.texture_margin_top = 52.0
+    style.texture_margin_right = 52.0
+    style.texture_margin_bottom = 52.0
+    return style
+
+
 static func pouch_panel_style() -> StyleBoxFlat:
     # Backing for the potion/upgrade readout. SpecialPaper's nine-patch does not
     # paint at the Control's rect at HUD sizes (a 68px panel painted 41px,
@@ -124,6 +145,27 @@ static func _button_style(path: String) -> StyleBoxTexture:
     style.content_margin_right = 24.0
     style.content_margin_bottom = 12.0
     return style
+
+
+## Nine-patch a texture sheet whose 3x3 tiles sit at `stride` intervals with
+## per-axis offsets. Several sheets in the pack need this: their tiles are 64px
+## but not flush with the image edge, and the X and Y paddings differ (the light
+## paper is 12 across and 20 down), so one shared offset samples empty pixels.
+static func patched(path: String, stride: int, offset_x: int = 0, offset_y: int = -1) -> Texture2D:
+    var oy := offset_x if offset_y < 0 else offset_y
+    var key := "%s:%d:%d:%d:nine" % [path, stride, offset_x, oy]
+    if _texture_cache.has(key):
+        return _texture_cache[key]
+    var source := (load(path) as Texture2D).get_image()
+    var result := Image.create(192, 192, false, Image.FORMAT_RGBA8)
+    for row in 3:
+        for column in 3:
+            result.blit_rect(source,
+                Rect2i(offset_x + column * stride, oy + row * stride, 64, 64),
+                Vector2i(column * 64, row * 64))
+    var texture := ImageTexture.create_from_image(result)
+    _texture_cache[key] = texture
+    return texture
 
 
 static func _nine_patch(path: String, stride: int) -> Texture2D:

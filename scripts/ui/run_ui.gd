@@ -13,18 +13,14 @@ const EDGE := Color("#c5ab72")
 # (the wood sheet leaves transparent corners, which let actions escape the frame),
 # so 700x610 paints ~665x570 and contains the actions with real margin.
 const MODAL_WIDTH := 700.0
-const MODAL_HEIGHT := 660.0
-const MODAL_BUTTON_WIDTH := 500.0
-const MODAL_BUTTON_LEFT := 100.0
+## Two-line action rows are 110px. The tallest stack is four of them on a 120px
+## pitch, which ends at 180 + 330 + 110 = 620, so 700 declares ~665 painted.
+const MODAL_HEIGHT := 700.0
+const MODAL_BUTTON_WIDTH := 560.0
+const MODAL_BUTTON_LEFT := 70.0
 const MODAL_BUTTON_TOP := 180.0
-## A two-line action label needs 77px: the 19px font's line box is 27px, so two
-## lines plus the stylebox's 12px top and bottom margins set the Button's minimum
-## size. Declaring less does not shrink it — Godot expands the button downward,
-## overlapping the next row and pushing the last one past the panel's bottom, so
-## the text reads as spilling out of its background. Height matches the minimum
-## and the 87px pitch keeps a uniform 10px gap.
-const MODAL_BUTTON_STEP := 87.0
-const MODAL_BUTTON_HEIGHT := 77.0
+## A uniform 12px gap between every pair of rows.
+const MODAL_BUTTON_STEP := 120.0
 const MODAL_PAD := 20.0
 # The title and body sit above the first button, so the panel must stay tall
 # enough for them; shrinking purely to the button count overlapped the body.
@@ -67,7 +63,7 @@ var modal_panel: Panel
 var menu_buttons: Array[Button] = []
 var overlay_title: Label
 var overlay_body: Label
-var buttons: Array[Button] = []
+var buttons: Array[ActionRow] = []
 var mode := ""
 var reward_options: Array[String] = []
 var _toast_time := 0.0
@@ -183,12 +179,13 @@ func refresh_shop(gold: int, message: String = "") -> void:
     overlay_body.text = "%s\n当前金币：%d" % [
         message if not message.is_empty() else "把金币留给保命药水，还是换取新的战技？", gold
     ]
-    buttons[2].text = _upgrade_button_text()
+    if buttons[2].visible:
+        _set_row_text(buttons[2], _upgrade_button_text())
 
 
 func mark_shop_upgrade_sold() -> void:
     _shop_upgrade = ""
-    buttons[2].text = "本次战技已售出"
+    buttons[2].set_row("本次战技已售出", "")
 
 
 func show_pause() -> void:
@@ -277,22 +274,24 @@ func _build_overlay(root: Control) -> void:
     root.add_child(overlay)
     _build_main_menu(overlay)
 
-    modal_panel = _panel(overlay, Vector2(-MODAL_WIDTH * 0.5, -MODAL_HEIGHT * 0.5), Vector2(MODAL_WIDTH, MODAL_HEIGHT), false)
+    # Light cream paper for the modal, so its text is dark ink as the art rules
+    # ask, rather than the dark slate surface used previously.
+    modal_panel = _paper_panel(overlay, Vector2(-MODAL_WIDTH * 0.5, -MODAL_HEIGHT * 0.5), Vector2(MODAL_WIDTH, MODAL_HEIGHT))
     modal_panel.anchor_left = 0.5
     modal_panel.anchor_right = 0.5
     modal_panel.anchor_top = 0.5
     modal_panel.anchor_bottom = 0.5
-    UI.add_icon(modal_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(330, 30), Vector2(40, 40))
-    overlay_title = _label(modal_panel, Vector2(100, 82), Vector2(500, 48), 34)
+    UI.add_icon(modal_panel, "res://asset/UI Elements/UI Elements/Icons/Icon_06.png", Vector2(330, 34), Vector2(40, 40))
+    overlay_title = _label(modal_panel, Vector2(100, 86), Vector2(500, 48), 34)
     overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    overlay_body = _label(modal_panel, Vector2(100, 134), Vector2(500, 40), 20)
+    overlay_body = _label(modal_panel, Vector2(100, 138), Vector2(500, 40), 20)
     overlay_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     overlay_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     overlay_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     overlay_body.add_theme_color_override("font_color", INK)
-    # Evenly gap-separated actions, contained by the panel's visible frame.
+    # Two-line action rows, evenly gap-separated and contained by the panel frame.
     for index in 4:
-        var button := _button(modal_panel, Vector2(MODAL_BUTTON_LEFT, MODAL_BUTTON_TOP + index * MODAL_BUTTON_STEP), Vector2(MODAL_BUTTON_WIDTH, MODAL_BUTTON_HEIGHT))
+        var button := _action_row(modal_panel, Vector2(MODAL_BUTTON_LEFT, MODAL_BUTTON_TOP + index * MODAL_BUTTON_STEP))
         button.pressed.connect(_on_button_pressed.bind(index))
         buttons.append(button)
 
@@ -378,19 +377,20 @@ func _show(title: String, body: String, labels: Array[String], next_mode: String
     overlay_body.text = body
     var danger: Array = DANGER_BUTTONS.get(next_mode, [])
     for index in 4:
-        buttons[index].visible = index < labels.size()
+        var row: ActionRow = buttons[index]
+        row.visible = index < labels.size()
         if index < labels.size():
-            buttons[index].text = labels[index]
-            # Re-apply per state: the same Button instance is reused across
-            # overlay modes, so the destructive style must be set and cleared.
-            UI.apply_button(buttons[index], index in danger)
+            _set_row_text(row, labels[index])
+            # Re-apply per state: the same row instance is reused across overlay
+            # modes, so the destructive style must be set and cleared.
+            UI.apply_button(row, index in danger)
     # Fit the panel to the action count. A fixed height left a large dead area
     # under two-button results such as "远征失败".
     # Center-anchored, so offsets are relative to the viewport centre; assigning
     # `position` here would be re-derived against the anchor and push the panel
     # off-screen, so set the offsets that `position` is computed from.
     var needed := maxf(
-        MODAL_BUTTON_TOP + MODAL_BUTTON_STEP * (labels.size() - 1) + MODAL_BUTTON_HEIGHT,
+        MODAL_BUTTON_TOP + MODAL_BUTTON_STEP * (labels.size() - 1) + ActionRow.FULL_HEIGHT,
         MODAL_MIN_HEIGHT
     ) + MODAL_PAD
     modal_panel.offset_left = -MODAL_WIDTH * 0.5
@@ -437,6 +437,15 @@ func _panel(parent: Control, at: Vector2, size: Vector2, wood: bool = false) -> 
     return panel
 
 
+func _paper_panel(parent: Control, at: Vector2, size: Vector2) -> Panel:
+    var panel := Panel.new()
+    panel.position = at
+    panel.size = size
+    panel.add_theme_stylebox_override("panel", UI.paper_panel_style())
+    parent.add_child(panel)
+    return panel
+
+
 func _hud_panel(parent: Control, at: Vector2, size: Vector2) -> Panel:
     var panel := Panel.new()
     panel.position = at
@@ -474,6 +483,22 @@ func _bar(parent: Control, at: Vector2, design: String, width: float) -> TinyBar
     bar.size = Vector2(width, bar.native_height())
     parent.add_child(bar)
     return bar
+
+
+func _action_row(parent: Control, at: Vector2) -> ActionRow:
+    var row := ActionRow.new()
+    row.position = at
+    row.size = Vector2(MODAL_BUTTON_WIDTH, ActionRow.FULL_HEIGHT)
+    UI.apply_button(row)
+    parent.add_child(row)
+    return row
+
+
+## A label may be one line ("继续远征") or two ("名称\n效果"). Both go through the
+## row's own labels, never the Button's text, so the frame always contains them.
+func _set_row_text(row: ActionRow, text: String) -> void:
+    var parts := text.split("\n", true, 1)
+    row.set_row(parts[0], parts[1] if parts.size() > 1 else "")
 
 
 func _button(parent: Control, at: Vector2, size: Vector2, danger: bool = false) -> Button:

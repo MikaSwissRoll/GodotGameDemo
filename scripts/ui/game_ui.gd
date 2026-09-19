@@ -30,9 +30,9 @@ var overlay: ColorRect
 var overlay_panel: Panel
 var overlay_title: Label
 var overlay_body: Label
-var primary_button: Button
-var secondary_button: Button
-var tertiary_button: Button
+var primary_button: ActionRow
+var secondary_button: ActionRow
+var tertiary_button: ActionRow
 var _mode := ""
 var _toast_time := 0.0
 var _shop_gold := 0
@@ -144,8 +144,8 @@ func set_shop_message(message: String) -> void:
 
 
 func _refresh_shop_buttons() -> void:
-    primary_button.text = "生命药水  ·  %d 金币" % _health_price
-    secondary_button.text = "精力药水  ·  %d 金币" % _stamina_price
+    primary_button.set_row("生命药水  ·  %d 金币" % _health_price, "")
+    secondary_button.set_row("精力药水  ·  %d 金币" % _stamina_price, "")
 
 
 func _build_hud(root: Control) -> void:
@@ -257,12 +257,11 @@ func _build_overlay(root: Control) -> void:
     overlay_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     overlay_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-    # Three actions on a 94px pitch. The 94px row is what a 20px font's two-line
-    # label plus the stylebox margins actually needs; a shorter declaration is
-    # overridden by the Button's minimum size, which overlaps the rows.
-    primary_button = _button(overlay_panel, Vector2(100, 210), Vector2(500, 94))
-    secondary_button = _button(overlay_panel, Vector2(100, 304), Vector2(500, 94))
-    tertiary_button = _button(overlay_panel, Vector2(100, 398), Vector2(500, 94))
+    # Action rows draw their own two-line labels; the Button art's frame is a
+    # fixed 44px, so its own text cannot carry two lines inside the frame.
+    primary_button = _action_row(overlay_panel, Vector2(70, 200))
+    secondary_button = _action_row(overlay_panel, Vector2(70, 320))
+    tertiary_button = _action_row(overlay_panel, Vector2(70, 440))
     tertiary_button.visible = false
     primary_button.pressed.connect(_on_primary_pressed)
     secondary_button.pressed.connect(_on_secondary_pressed)
@@ -279,22 +278,36 @@ const DANGER_BY_MODE := {
 }
 
 
+func _action_row(parent: Control, at: Vector2) -> ActionRow:
+    var row := ActionRow.new()
+    row.position = at
+    row.size = Vector2(560, ActionRow.FULL_HEIGHT)
+    UI.apply_button(row)
+    parent.add_child(row)
+    return row
+
+
+## Overlay labels are single-line, so the row shows the name alone.
+func _set_row_text(row: ActionRow, text: String) -> void:
+    row.set_row(text, "")
+
+
 func _show_overlay(title: String, body: String, primary: String, secondary: String, mode: String, tertiary: String = "") -> void:
     _mode = mode
     hud_root.visible = mode != "menu"
     overlay_title.text = title
     overlay_body.text = body
-    primary_button.text = primary
-    secondary_button.text = secondary
-    tertiary_button.text = tertiary
+    _set_row_text(primary_button, primary)
+    _set_row_text(secondary_button, secondary)
+    _set_row_text(tertiary_button, tertiary)
     tertiary_button.visible = not tertiary.is_empty()
-    # Center the stack on whatever number of actions is present, on the same
-    # 94px pitch, so two-button modals leave no dead area.
+    # Center the stack on however many actions are present, on the same 120px
+    # pitch, so two-button modals leave no dead area.
     var count := 3 if tertiary_button.visible else 2
-    var top := 257.0 - (count - 1) * 47.0
+    var top := 260.0 - (count - 1) * 60.0
     primary_button.position.y = top
-    secondary_button.position.y = top + 94.0
-    tertiary_button.position.y = top + 188.0
+    secondary_button.position.y = top + 120.0
+    tertiary_button.position.y = top + 240.0
     var danger: Array = DANGER_BY_MODE.get(mode, [])
     UI.apply_button(primary_button, 0 in danger)
     UI.apply_button(secondary_button, 1 in danger)
