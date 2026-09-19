@@ -20,6 +20,18 @@ scripts, scenes, and assets.
 
 ## Root causes found and fixed
 
+0. **The bars were flat colour, not the supplied bar art.** `_bar()` drew a
+   `StyleBoxFlat` rectangle inside a nine-patch frame, so an empty bar showed a
+   theme default rather than the asset. `scripts/ui/tiny_bar.gd` (`TinyBar`) now
+   composes `Bars/BigBar_Base.png` at the exact requested width — caps blitted
+   whole, middle tile repeated — and draws `Bars/BigBar_Fill.png` into the
+   frame's recessed band, tinted white for health and gold for stamina.
+   `NinePatchRect` was tried first and rejected: the sheet's caps are not flush
+   with their 64px tiles, so no patch margin or axis mode stretches it correctly
+   (verified by sweeping margins 6/12/24/40 in both STRETCH and TILE).
+   Measured geometry: frame y 9..52 (44px), recess y 25..43 (19px), caps at
+   x 40..63 and 256..279, middle tile x 128..191.
+
 1. **`SpecialPaper`'s nine-patch does not paint at the Control's rect.** Isolated
    on a black backdrop it consistently painted `height - 27` (a 690x68 panel
    painted 41px; 135x52 painted 25px; 320x176 painted 149px; 540x53 painted 26px)

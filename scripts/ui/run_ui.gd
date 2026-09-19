@@ -45,8 +45,8 @@ signal resume_requested
 signal restart_requested
 signal title_requested
 
-var health_bar: ProgressBar
-var stamina_bar: ProgressBar
+var health_bar: TinyBar
+var stamina_bar: TinyBar
 var health_label: Label
 var stamina_label: Label
 var boost_label: Label
@@ -107,7 +107,6 @@ func set_stamina(current: float, maximum: float) -> void:
     stamina_bar.max_value = maximum
     stamina_bar.value = current
     stamina_label.text = "精力  %d / %d" % [ceili(current), ceili(maximum)]
-
 
 func set_boost(remaining: float) -> void:
     boost_label.visible = remaining > 0.0
@@ -217,14 +216,14 @@ func _upgrade_button_text() -> String:
 
 
 func _build_hud(root: Control) -> void:
-    # Panel height is the sum of its content: two 28px labels, two 40px bars,
-    # and 8px of padding at the top, between rows, and at the bottom.
-    var stats := _hud_panel(root, Vector2(20, 20), Vector2(320, 168))
+    # Panel height is the sum of its content: two 28px labels, two 44px bars,
+    # and 10px of padding at the top, between rows, and at the bottom.
+    var stats := _hud_panel(root, Vector2(20, 20), Vector2(320, 174))
     health_label = _label(stats, Vector2(16, 10), Vector2(280, 28), 19)
-    health_bar = _bar(stats, Vector2(16, 40), Color("#bf514b"))
-    stamina_label = _label(stats, Vector2(16, 88), Vector2(280, 28), 19)
-    stamina_bar = _bar(stats, Vector2(16, 118), Color("#d5ae50"))
-    boost_label = _label(root, Vector2(20, 194), Vector2(310, 29), 17)
+    health_bar = _bar(stats, Vector2(16, 38), Color.WHITE)
+    stamina_label = _label(stats, Vector2(16, 92), Vector2(280, 28), 19)
+    stamina_bar = _bar(stats, Vector2(16, 120), Color("#e8b73f"))
+    boost_label = _label(root, Vector2(20, 200), Vector2(310, 29), 17)
     boost_label.visible = false
 
     var gold_panel := _hud_panel(root, Vector2(-155, 20), Vector2(135, 52))
@@ -452,17 +451,13 @@ func _label(parent: Control, at: Vector2, size: Vector2, font_size: int) -> Labe
     return label
 
 
-func _bar(parent: Control, at: Vector2, fill: Color) -> ProgressBar:
-    var bar := ProgressBar.new()
+func _bar(parent: Control, at: Vector2, tint: Color) -> TinyBar:
+    var bar := TinyBar.new()
     bar.position = at
-    # Tall enough for the bar frame's 12px top and bottom caps plus a visible
-    # middle band for the fill.
-    bar.size = Vector2(288, 40)
-    bar.show_percentage = false
-    var background := UI.bar_background_style()
-    var foreground := UI.bar_fill_style(fill)
-    bar.add_theme_stylebox_override("background", background)
-    bar.add_theme_stylebox_override("fill", foreground)
+    # The composed frame is a native 44px tall, so the caps stay crisp at this
+    # height. Width is free; only the middle tile repeats.
+    bar.size = Vector2(288, 44)
+    bar.tint = tint
     parent.add_child(bar)
     return bar
 
