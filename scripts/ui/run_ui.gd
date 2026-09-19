@@ -115,9 +115,9 @@ func set_gold(amount: int) -> void:
 
 func set_stage(stage: int, remaining: int) -> void:
     if stage <= 3:
-        stage_label.text = "第 %d / 3 场  ·  剩余敌人 %d" % [stage, remaining]
+        stage_label.text = "第 %d/3 场 · 剩 %d" % [stage, remaining]
     else:
-        stage_label.text = "精英战  ·  剩余敌人 %d" % remaining
+        stage_label.text = "精英 · 剩 %d" % remaining
 
 
 func set_inventory(health_count: int, stamina_count: int) -> void:
@@ -228,23 +228,23 @@ func _build_hud(root: Control) -> void:
     gold_label.offset_left = -109.0
     gold_label.offset_right = -31.0
 
-    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_05.png", Vector2(720, 82), Vector2(40, 40))
-    stage_label = _label(root, Vector2(768, 88), Vector2(470, 28), 20)
+    # Battlefield info shares the gold row, to its left, right-aligned so it grows
+    # away from the gold readout instead of into it.
+    UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_05.png", Vector2(864, 20), Vector2(40, 40))
+    stage_label = _label(root, Vector2(912, 26), Vector2(178, 28), 20)
+    stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     stage_label.anchor_left = 1.0
     stage_label.anchor_right = 1.0
-    stage_label.offset_left = -512.0
-    stage_label.offset_right = -42.0
+    stage_label.offset_left = -368.0
+    stage_label.offset_right = -190.0
 
-    potion_label = _label(root, Vector2(20, -86), Vector2(658, 24), 18)
-    potion_label.anchor_top = 1.0
-    potion_label.anchor_bottom = 1.0
-    potion_label.offset_top = -86.0
-    potion_label.offset_bottom = -62.0
-    build_label = _label(root, Vector2(20, -58), Vector2(658, 22), 17)
-    build_label.anchor_top = 1.0
-    build_label.anchor_bottom = 1.0
-    build_label.offset_top = -58.0
-    build_label.offset_bottom = -36.0
+    # Potion and run-upgrade readout, on its own backing so it stays legible
+    # over the arena floor.
+    var pouch := _hud_panel(root, Vector2(20, -86), Vector2(430, 62))
+    pouch.anchor_top = 1.0
+    pouch.anchor_bottom = 1.0
+    potion_label = _label(pouch, Vector2(14, 8), Vector2(402, 24), 18)
+    build_label = _label(pouch, Vector2(14, 32), Vector2(402, 22), 17)
 
     var controls := _label(root, Vector2(-520, -45), Vector2(500, 31), 16)
     controls.anchor_left = 1.0
@@ -426,6 +426,15 @@ func _panel(parent: Control, at: Vector2, size: Vector2, wood: bool = false) -> 
     panel.position = at
     panel.size = size
     panel.add_theme_stylebox_override("panel", UI.panel_style(wood))
+    parent.add_child(panel)
+    return panel
+
+
+func _hud_panel(parent: Control, at: Vector2, size: Vector2) -> Panel:
+    var panel := Panel.new()
+    panel.position = at
+    panel.size = size
+    panel.add_theme_stylebox_override("panel", UI.pouch_panel_style())
     parent.add_child(panel)
     return panel
 

@@ -41,6 +41,18 @@ static func ribbon_style(color_index: int = 0) -> StyleBoxTexture:
     return style
 
 
+static func pouch_panel_style() -> StyleBoxFlat:
+    # Backing for the potion/upgrade readout. SpecialPaper's nine-patch does not
+    # paint at the Control's rect at HUD sizes (a 68px panel painted 41px,
+    # offset ~20px down), so a flat box draws exactly where it is declared.
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("#26362f", 0.82)
+    style.border_color = Color("#c5ab72")
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(4)
+    return style
+
+
 static func bar_background_style() -> StyleBoxTexture:
     var style := StyleBoxTexture.new()
     style.texture = _horizontal_patch(BAR_BASE, 128)
