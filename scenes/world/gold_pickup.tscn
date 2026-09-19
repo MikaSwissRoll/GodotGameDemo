@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gold_pickup.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://asset/Terrain/Resources/Gold/Gold Resource/Gold_Resource.png" id="2_gold"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
+radius = 20.0
+
+[node name="GoldPickup" type="Area2D"]
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_gold")
+region_enabled = true
+region_rect = Rect2(48, 48, 32, 32)
+scale = Vector2(1.5, 1.5)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_pickup")

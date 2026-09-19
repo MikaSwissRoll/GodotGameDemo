@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/main/run_game.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/world/run_arena.tscn" id="2_arena"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/ui/run_ui.tscn" id="4_ui"]
+
+[node name="RunGame" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="RunArena" parent="." instance=ExtResource("2_arena")]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(240, 480)
+
+[node name="RunUI" parent="." instance=ExtResource("4_ui")]
+
+

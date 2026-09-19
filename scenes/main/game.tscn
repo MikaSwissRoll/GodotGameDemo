@@ -1,0 +1,53 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/main/game.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/world/world.tscn" id="2_world"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/enemies/melee_enemy.tscn" id="4_melee"]
+[ext_resource type="PackedScene" path="res://scenes/enemies/archer_enemy.tscn" id="5_archer"]
+[ext_resource type="PackedScene" path="res://scenes/world/village_guard.tscn" id="6_guard"]
+[ext_resource type="Script" path="res://scripts/systems/quest_manager.gd" id="7_quest"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_ui.tscn" id="8_ui"]
+
+[ext_resource type="PackedScene" path="res://scenes/world/merchant.tscn" id="9_merchant"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="World" parent="." instance=ExtResource("2_world")]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(330, 790)
+
+[node name="VillageGuard" parent="." instance=ExtResource("6_guard")]
+position = Vector2(510, 720)
+
+[node name="Merchant" parent="." instance=ExtResource("9_merchant")]
+position = Vector2(690, 720)
+
+[node name="MeleeEnemy1" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
+position = Vector2(1280, 790)
+
+[node name="MeleeEnemy2" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
+position = Vector2(1930, 800)
+
+[node name="MeleeEnemy3" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
+position = Vector2(3160, 810)
+
+[node name="MeleeEnemy4" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
+position = Vector2(3590, 850)
+
+[node name="MeleeEnemy5" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
+position = Vector2(4400, 830)
+
+[node name="ArcherEnemy1" parent="." groups=["bandits"] instance=ExtResource("5_archer")]
+position = Vector2(3890, 600)
+
+[node name="ArcherEnemy2" parent="." groups=["bandits"] instance=ExtResource("5_archer")]
+position = Vector2(4510, 1020)
+
+[node name="QuestManager" type="Node" parent="."]
+script = ExtResource("7_quest")
+
+[node name="GameUI" parent="." instance=ExtResource("8_ui")]
+
