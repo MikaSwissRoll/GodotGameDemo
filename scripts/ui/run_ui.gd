@@ -17,17 +17,20 @@ const MODAL_HEIGHT := 610.0
 const MODAL_BUTTON_WIDTH := 500.0
 const MODAL_BUTTON_LEFT := 100.0
 const MODAL_BUTTON_TOP := 180.0
-const MODAL_BUTTON_STEP := 78.0
-const MODAL_BUTTON_HEIGHT := 72.0
+## 70px rows on an 80px pitch: a uniform 10px gap between every pair, which is
+## what keeps two-line action rows from looking unevenly stacked.
+const MODAL_BUTTON_STEP := 80.0
+const MODAL_BUTTON_HEIGHT := 70.0
 const MODAL_PAD := 20.0
 # The title and body sit above the first button, so the panel must stay tall
 # enough for them; shrinking purely to the button count overlapped the body.
 const MODAL_MIN_HEIGHT := 358.0
 # Button indices that cancel progress, per docs/art/UI_VISUAL_RULES.md: quitting
 # or abandoning a run takes the red destructive state, matching the main menu's
-# "退出游戏" button.
+# "退出游戏" button. Buying something spends gold but keeps the run going, so
+# "继续远征" stays affirmative and is not listed here.
 const DANGER_BUTTONS := {
-    "shop": [2, 3],
+    "shop": [2],
     "pause": [1, 2],
     "win": [1],
     "dead": [1],

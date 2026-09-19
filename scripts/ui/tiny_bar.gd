@@ -55,6 +55,12 @@ const DESIGNS := {
         "left": Rect2i(40, 9, 24, 44),
         "middle": Rect2i(128, 9, 64, 44),
         "right": Rect2i(256, 9, 24, 44),
+        # Each cap tile is 24px wide, but only the ~10 columns at its *outer* end
+        # are the rounded wood edge; the rest is recessed track. Keeping just the
+        # edge lets the fill run all the way to the corners instead of stopping at
+        # a dark groove. The outer end is the left of the left cap and the right
+        # of the right cap, so the two ends trim from opposite sides.
+        "cap_keep": 10,
         "height": 44,
         "track_top": 16,
         "fill_band": Rect2i(0, 24, 64, 19),
@@ -67,6 +73,7 @@ const DESIGNS := {
         "left": Rect2i(49, 22, 15, 19),
         "middle": Rect2i(128, 22, 64, 19),
         "right": Rect2i(256, 22, 15, 19),
+        "cap_keep": 7,
         "height": 19,
         "track_top": 9,
         "fill_band": Rect2i(0, 30, 64, 3),
@@ -80,6 +87,13 @@ var design: String = "big":
         design = new_design if DESIGNS.has(new_design) else "big"
         _load_sheet()
         _apply_fill_style()
+
+## Overrides the design's `cap_keep`; 0 uses the design value.
+var cap_keep_override: int = 0:
+    set(value):
+        cap_keep_override = value
+        _mark_dirty()
+
 
 ## Setter parameters are deliberately not named after the property: inside a
 ## setter the parameter shadows it, so `value = clampf(value, ...)` would assign
@@ -175,9 +189,11 @@ func _compose() -> void:
         return
     var geo := _geometry()
     var height: int = geo["height"]
-    var left_rect: Rect2i = geo["left"]
+    var keep: int = cap_keep_override if cap_keep_override > 0 else int(geo["cap_keep"])
+    # Keep the outer end of each cap: left of the left cap, right of the right cap.
+    var left_rect := _outer_edge(geo["left"], keep, false)
+    var right_rect := _outer_edge(geo["right"], keep, true)
     var middle: Rect2i = geo["middle"]
-    var right_rect: Rect2i = geo["right"]
     var width := int(round(size.x))
     if width <= left_rect.size.x + right_rect.size.x or width == _built_width:
         return
@@ -202,3 +218,10 @@ func _compose() -> void:
         maxf(float(right - left) * ratio(), 0.0),
         float(geo["fill_band"].size.y)
     )
+
+
+## Keep only the columns at a cap's outer end, where its rounded wood edge is.
+func _outer_edge(cap: Rect2i, keep: int, is_right: bool) -> Rect2i:
+    var width := maxi(3, mini(keep, cap.size.x))
+    var x := cap.position.x + cap.size.x - width if is_right else cap.position.x
+    return Rect2i(x, cap.position.y, width, cap.size.y)
