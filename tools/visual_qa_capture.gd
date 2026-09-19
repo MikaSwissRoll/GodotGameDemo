@@ -12,6 +12,7 @@ const VALID_TARGETS := [
     "merchant_shop",
     "dialogue_ui",
     "pause_menu",
+    "reward_overlay",
     "shop_overlay",
     "result_dead",
 ]
@@ -103,7 +104,7 @@ func _parse_arguments() -> bool:
 
 
 func _configure_target(game: Node) -> void:
-    if _target in ["main_menu", "combat", "merchant_shop", "pause_menu", "shop_overlay", "result_dead"]:
+    if _target in ["main_menu", "combat", "merchant_shop", "pause_menu", "reward_overlay", "shop_overlay", "result_dead"]:
         await _configure_run_target(game)
     else:
         await _configure_classic_target(game)
@@ -127,6 +128,12 @@ func _configure_run_target(game: Node) -> void:
             await _wait_frames(5)
             game.phase = "pause"
             ui.show_pause()
+            paused = true
+        "reward_overlay":
+            ui.start_requested.emit()
+            await _wait_frames(5)
+            var rewards: Array[String] = ["swift_step", "dash_cleave", "shield_counter"]
+            ui.show_rewards(rewards)
             paused = true
         "shop_overlay":
             # The real four-button shop modal, which is the tallest the shared
@@ -161,6 +168,10 @@ func _configure_classic_target(game: Node) -> void:
     match _target:
         "village":
             player.global_position = Vector2(760, 790)
+            # Exercise the longest current quest HUD state instead of the short
+            # pre-quest prompt that cannot reveal quest/gold collisions.
+            var quest := game.get_node("QuestManager") as QuestManager
+            quest.accept_quest()
         "wilderness":
             player.global_position = Vector2(2050, 800)
         "enemy_camp":

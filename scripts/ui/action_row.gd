@@ -44,7 +44,7 @@ var _desc_label: Label
 
 func _init() -> void:
     # The Button keeps its text empty so it never competes with the labels.
-    focus_mode = Control.FOCUS_NONE
+    focus_mode = Control.FOCUS_ALL
     _name_label = _make_label(NAME_SIZE)
     _desc_label = _make_label(DESC_SIZE)
     add_child(_name_label)
@@ -91,6 +91,8 @@ func _make_label(font_size: int) -> Label:
 ## the visible area they describe instead.
 const ART_ABOVE := 18.0
 const ART_BELOW := 29.0
+# Ignore the lower extrusion when centering labels on the front-facing plane.
+const FRONT_FACE_TEXT_OFFSET_Y := -10.0
 
 
 func _layout() -> void:
@@ -100,7 +102,7 @@ func _layout() -> void:
     # Visible vertical extent of the painted button, in row-local coordinates.
     var art_top := -ART_ABOVE
     var art_bottom := size.y + ART_BELOW
-    var top := (art_top + art_bottom) * 0.5 - block * 0.5
+    var top := (art_top + art_bottom) * 0.5 - block * 0.5 + FRONT_FACE_TEXT_OFFSET_Y
     _name_label.position = Vector2(left, top)
     _name_label.size = Vector2(width, NAME_HEIGHT)
     _desc_label.position = Vector2(left, top + NAME_HEIGHT + GAP)

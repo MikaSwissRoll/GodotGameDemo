@@ -32,7 +32,7 @@ Use `-Output` to keep comparison images:
 | Target | Captured state |
 | --- | --- |
 | `main_menu` | Roguelite title screen |
-| `village` | Classic village and HUD |
+| `village` | Classic village and HUD with the active quest progress text |
 | `wilderness` | River crossing and borderland |
 | `enemy_camp` | Red faction camp and enemies |
 | `combat` | Active roguelite combat room |
@@ -41,6 +41,7 @@ Use `-Output` to keep comparison images:
 | `result_dead` | Run-failed result reached by an actual player death |
 | `dialogue_ui` | Village guard dialogue presentation |
 | `pause_menu` | Paused roguelite run |
+| `reward_overlay` | Roguelite upgrade selection |
 
 Each target instantiates the real project scene, enters the requested state,
 waits for rendered frames, freezes the state, and saves the viewport texture.
