@@ -105,24 +105,23 @@ func _check_state_icon_anchor() -> void:
         "state icon is not nearest-filtered")
     assert(player.state_icon_offset.x > 0.0 and player.state_icon_offset.y < 0.0,
         "state icon offset is not up and to the right: %s" % player.state_icon_offset)
-    # It must show while stamina is low and hide once recovered.
+    # It must show while stamina is low and hide once recovered. Every band uses
+    # the same sweat drop; severity is the shake, not the symbol.
     player.restore_stamina()
     await _wait_frames(3)
-    print("  diag icon: stamina=%.1f visible=%s hold=%.2f" % [
-        player.stamina, icon.visible, player._state_icon_left])
     assert(not icon.visible, "state icon stayed visible at full stamina")
-    player._change_stamina(-75.0)          # -> 25, a warning band
+    player._change_stamina(-75.0)          # -> 25, the shallow band
     await _wait_frames(3)
     assert(icon.visible, "state icon did not appear at low stamina")
     assert(Rect2i((icon.texture as AtlasTexture).region) == UI.SHIKASHI_SWEAT,
         "shallow warning shows the wrong icon")
     player._change_stamina(-10.0)          # -> 15, the deep band
     await _wait_frames(3)
-    assert(Rect2i((icon.texture as AtlasTexture).region) == UI.SHIKASHI_ZZZ,
-        "deep warning shows the wrong icon")
+    assert(Rect2i((icon.texture as AtlasTexture).region) == UI.SHIKASHI_SWEAT,
+        "deep warning shows the wrong icon; every band uses the sweat drop")
     player.restore_stamina()
     await _wait_frames(3)
-    print("  state icon follows the player, up-and-right, swaps sweat/zzz, hides when safe")
+    print("  state icon follows the player, up-and-right, always the sweat drop, hides when safe")
 
 
 func _check_balance_unchanged() -> void:

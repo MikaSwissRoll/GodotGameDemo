@@ -60,17 +60,22 @@ signal died
 ## Feedback shake of the character itself. The HUD shrinks the stamina bar on the
 ## same thresholds, so warning reads as the character and the bar shuddering
 ## together. Amplitude is in pixels and decays over the duration.
-@export var char_shake_warn: float = 3.0
-@export var char_shake_deep: float = 5.0
-@export var char_shake_denied: float = 4.0
-@export var char_shake_break: float = 7.0
-@export var char_shake_seconds: float = 0.22
+##
+## The deeper threshold is deliberately about twice the shallow one, because the
+## two warnings share the same icon and the shake is what distinguishes them.
+@export var char_shake_warn: float = 7.0
+@export var char_shake_deep: float = 13.0
+@export var char_shake_denied: float = 8.0
+@export var char_shake_break: float = 16.0
+@export var char_shake_seconds: float = 0.3
 
 ## The stamina state icon rides above and to the right of the character, so the
 ## warning points at whoever it applies to. Offset is in the player's local space,
 ## clear of the sprite's head.
 @export var state_icon_offset := Vector2(34.0, -74.0)
 @export var state_icon_hold: float = 0.55
+## 32px source drawn at 1.5x its previous 0.7, so the drop reads at a glance.
+@export var state_icon_scale: float = 1.05
 
 @export var attack_damage: int = 25
 @export var attack_cooldown: float = 0.5
@@ -143,7 +148,7 @@ func _ready() -> void:
     dash_hitbox.area_entered.connect(_on_dash_area_entered)
     # The stamina state icon is a child of the player, so it tracks them for free
     # and needs no per-frame positioning.
-    _state_icon = UI.make_state_icon(self, UI.SHIKASHI_SWEAT, 0.7)
+    _state_icon = UI.make_state_icon(self, UI.SHIKASHI_SWEAT, state_icon_scale)
     _state_icon.position = state_icon_offset
     health_changed.emit(health, max_health)
     stamina_changed.emit(stamina, max_stamina)
@@ -330,15 +335,13 @@ func show_state_icon(level: int, seconds: float = -1.0) -> void:
     _state_icon_left = state_icon_hold if seconds < 0.0 else seconds
 
 
-func _state_icon_texture(level: int) -> AtlasTexture:
-    var rect := UI.SHIKASHI_SWEAT
-    if level == 2:
-        rect = UI.SHIKASHI_ZZZ
-    elif level >= 3:
-        rect = UI.SHIKASHI_SWOON
+## The state icon is the sweat drop for every band. The severity is carried by the
+## size of the character shake instead, so the player reads one familiar symbol and
+## a strength, not a symbol they have to decode.
+func _state_icon_texture(_level: int) -> AtlasTexture:
     var tex := AtlasTexture.new()
     tex.atlas = load(UI.SHIKASHI_SHEET) as Texture2D
-    tex.region = rect
+    tex.region = UI.SHIKASHI_SWEAT
     return tex
 
 

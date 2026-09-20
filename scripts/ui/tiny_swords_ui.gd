@@ -142,16 +142,15 @@ static func add_icon(parent: Control, texture_path: String, at: Vector2, size: V
 const SHIKASHI_SHEET := "res://asset/Shikashi's Fantasy Icons Pack v2/#1 - Transparent Icons.png"
 const SHIKASHI_BUBBLE := Rect2i(96, 0, 32, 32)
 
-## Stamina state icons, also from the Shikashi sheet. The Tiny Swords icon set has
+## Stamina state icon, also from the Shikashi sheet. The Tiny Swords icon set has
 ## no fatigue or warning concept (its twelve icons are items: logs, meat, coin,
-## sword, shield, gems, cross, gear, info, notes), so these come from the fantasy
+## sword, shield, gems, cross, gear, info, notes), so this comes from the fantasy
 ## pack, addressed by measured pixel rect as always.
-##   sweat  a droplet, for the first warning step
-##   zzz    sleep, for the deeper warning
-##   swoon  a dazed face, for the guard-break exhausted state
+##
+## One icon serves every stamina band: the sweat drop. Severity is carried by the
+## strength of the character shake, so the player reads a single familiar symbol
+## plus a magnitude rather than decoding a different picture per threshold.
 const SHIKASHI_SWEAT := Rect2i(320, 0, 32, 32)
-const SHIKASHI_ZZZ := Rect2i(224, 0, 32, 32)
-const SHIKASHI_SWOON := Rect2i(128, 0, 32, 32)
 
 ## Local-space placement for the marker and the interaction prompt.
 ##
