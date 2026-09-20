@@ -17,19 +17,19 @@ script = ExtResource("1_game")
 [node name="World" parent="." instance=ExtResource("2_world")]
 
 [node name="Player" parent="." instance=ExtResource("3_player")]
-position = Vector2(330, 790)
+position = Vector2(1020, 920)
 
 [node name="VillageGuard" parent="." instance=ExtResource("6_guard")]
-position = Vector2(510, 720)
+position = Vector2(1390, 935)
 
 [node name="Merchant" parent="." instance=ExtResource("9_merchant")]
-position = Vector2(690, 720)
+position = Vector2(885, 825)
 
 [node name="MeleeEnemy1" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
-position = Vector2(1280, 790)
+position = Vector2(2760, 790)
 
 [node name="MeleeEnemy2" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
-position = Vector2(1930, 800)
+position = Vector2(2940, 1020)
 
 [node name="MeleeEnemy3" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
 position = Vector2(3160, 810)

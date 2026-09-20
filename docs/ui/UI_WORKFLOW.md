@@ -87,7 +87,9 @@ collect.
 2. Name the exact states affected, including normal, focus, disabled, empty,
    full, unaffordable, or long-text variants when relevant.
 3. Identify the implementation owner:
-   - `scripts/ui/run_ui.gd` owns the roguelite HUD, menu, and modal flow.
+   - `scripts/ui/town_menu.gd` owns the live town title menu.
+   - `scripts/main/town_title.gd` owns its camera and mode handoff.
+   - `scripts/ui/run_ui.gd` owns the roguelite HUD and modal flow.
    - `scripts/ui/game_ui.gd` owns the classic adventure HUD and modal flow.
    - `scripts/ui/tiny_swords_ui.gd` owns shared style construction.
    - `scripts/ui/tiny_bar.gd` owns health and stamina bar rendering.

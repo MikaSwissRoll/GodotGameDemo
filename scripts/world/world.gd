@@ -1,6 +1,7 @@
 extends Node2D
 
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
+const TOWN := preload("res://scripts/world/starting_town.gd")
 const MAP_CELLS := Vector2i(75, 24)
 const MAP_SIZE := Vector2(4800.0, 1536.0)
 const RIVER_LEFT := 2304.0
@@ -55,42 +56,27 @@ func _build_terrain() -> void:
         Rect2i(0, 0, 36, MAP_CELLS.y), -20, Vector4i(0, 0, 1, 0))
     ENV.add_ground_rect(_art, "EnemyContinent", GRASS_3,
         Rect2i(40, 0, 35, MAP_CELLS.y), -20, Vector4i(1, 0, 0, 0))
-    ENV.add_plateau(_art, "VillageGreen", GRASS_2, Rect2i(3, 2, 18, 8))
-    ENV.add_ground_rect(_art, "GuardRoad", GRASS_2, Rect2i(3, 10, 33, 4), -18)
+    ENV.add_plateau(_art, "CastleTerrace", GRASS_2, Rect2i(15, 2, 9, 6), false)
+    # Side ramps are source terrain tiles; the central cliff remains solid.
+    var cliff := ENV.add_wall(self, Vector2(1248, 530), Vector2(448, 40))
+    cliff.add_to_group(ENV.PLATEAU_CLIFF_GROUP)
+    # Continuous lowland lets roads and grouped scenery describe the village.
+    var ramps := ENV._new_tile_layer(_art, "CastleRamps", GRASS_2, -16)
+    ramps.set_cell(Vector2i(15, 8), 0, Vector2i(0, 4))
+    ramps.set_cell(Vector2i(15, 9), 0, Vector2i(0, 5))
+    ramps.set_cell(Vector2i(23, 8), 0, Vector2i(3, 4))
+    ramps.set_cell(Vector2i(23, 9), 0, Vector2i(3, 5))
     ENV.add_plateau(_art, "CampRise", GRASS_4, Rect2i(53, 1, 19, 9))
     ENV.add_ground_rect(_art, "CampRoad", GRASS_4, Rect2i(40, 10, 31, 4), -18)
 
 
 func _build_village() -> void:
-    ENV.add_building(_art, BLUE + "Castle.png", Vector2(430, 620), 0.95,
-        Vector2(225, 58), Vector2(1.7, 0.66))
-    ENV.add_building(_art, BLUE + "House1.png", Vector2(790, 640), 0.82,
-        Vector2(78, 38))
-    ENV.add_building(_art, BLUE + "House2.png", Vector2(955, 640), 0.78,
-        Vector2(76, 38))
-    ENV.add_building(_art, BLUE + "House3.png", Vector2(1125, 640), 0.78,
-        Vector2(76, 38))
-    ENV.add_building(_art, BLUE + "Monastery.png", Vector2(1375, 640), 0.66,
-        Vector2(92, 42), Vector2(0.9, 0.55))
-    ENV.add_building(_art, BLUE + "Barracks.png", Vector2(1690, 650), 0.72,
-        Vector2(110, 44), Vector2(1.0, 0.56))
-    ENV.add_building(_art, BLUE + "Tower.png", Vector2(2115, 630), 0.7,
-        Vector2(68, 38))
-    ENV.add_building(_art, BLUE + "Archery.png", Vector2(860, 1325), 0.7,
-        Vector2(94, 40))
-    ENV.add_building(_art, BLUE + "House2.png", Vector2(1160, 1300), 0.72,
-        Vector2(72, 36))
+    var town := TOWN.new()
+    _art.add_child(town)
 
-    _tree_cluster(Vector2(100, 350), [1, 2, 4, 3], 0)
-    _tree_cluster(Vector2(1850, 290), [2, 3, 1], 4)
-    _tree_cluster(Vector2(155, 1330), [4, 2, 3], 2)
-    _tree_cluster(Vector2(1840, 1335), [1, 4, 2, 3], 5)
-    _bush_cluster([Vector2(660, 300), Vector2(735, 315), Vector2(1240, 325),
-        Vector2(1515, 330), Vector2(430, 1190), Vector2(1450, 1260)], 0)
-    _rock_cluster([Vector2(285, 1080), Vector2(2030, 1130), Vector2(2180, 310)], 0)
-    ENV.add_sheep(_art, Vector2(720, 615), 0)
-    ENV.add_sheep(_art, Vector2(990, 625), 3)
-    ENV.add_sheep(_art, Vector2(1280, 610), 5)
+
+func set_title_active(active: bool) -> void:
+    _art.process_mode = Node.PROCESS_MODE_ALWAYS if active else Node.PROCESS_MODE_INHERIT
 
 
 func _build_borderlands() -> void:

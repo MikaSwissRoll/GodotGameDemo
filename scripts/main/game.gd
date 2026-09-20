@@ -2,7 +2,8 @@ extends Node2D
 
 const INPUT_SETUP := preload("res://scripts/systems/input_setup.gd")
 const GOLD_SCENE := preload("res://scenes/world/gold_pickup.tscn")
-const MAIN_MENU_SCENE := "res://scenes/main/run_game.tscn"
+const MAIN_MENU_SCENE := "res://scenes/main/town_title.tscn"
+static var restart_into_play := false
 
 @export var health_potion_price: int = 3
 @export var stamina_potion_price: int = 3
@@ -56,6 +57,31 @@ func _ready() -> void:
     ui.set_inventory(health_potions, stamina_potions)
     ui.set_quest(quest.get_objective_text())
     get_tree().paused = true
+    if restart_into_play:
+        restart_into_play = false
+        call_deferred("_on_start_requested")
+
+
+func prepare_title_view() -> void:
+    player.controls_enabled = false
+    player.camera.enabled = false
+    player.sprite.process_mode = Node.PROCESS_MODE_ALWAYS
+    ui.hide_overlay()
+    ui.hide()
+    ui.process_mode = Node.PROCESS_MODE_DISABLED
+    $World.set_title_active(true)
+    guard.prompt.hide()
+    merchant.prompt.hide()
+    get_tree().paused = true
+
+
+func begin_from_title() -> void:
+    $World.set_title_active(false)
+    player.sprite.process_mode = Node.PROCESS_MODE_INHERIT
+    player.controls_enabled = true
+    ui.process_mode = Node.PROCESS_MODE_ALWAYS
+    ui.show()
+    _on_start_requested()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -86,7 +112,8 @@ func _on_resume_requested() -> void:
 
 func _on_restart_requested() -> void:
     get_tree().paused = false
-    get_tree().reload_current_scene()
+    restart_into_play = true
+    get_tree().change_scene_to_file("res://scenes/main/game.tscn")
 
 
 func _on_title_requested() -> void:

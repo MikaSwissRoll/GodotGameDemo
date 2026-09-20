@@ -97,7 +97,12 @@ viewport edge, and give icon-plus-label pairs one consistent gap.
 
 ## Main menu and pause
 
-Use one centered modal with a strong title and no more than one short subtitle.
+The main title uses a compact left-side menu over the live classic town, with
+this reading order: 边境远征, 经典模式, 远征模式, 退出游戏. Keep scenery
+visible and omit gameplay HUD until the classic camera handoff completes.
+
+Pause and gameplay overlays use one centered modal with a strong title and no
+more than one short subtitle.
 Buttons should share a width, remain inside the panel's effective paper area,
 and follow the same vertical rhythm. Order actions by likelihood and risk.
 Place quitting, abandoning a run, and destructive restart actions last or use a

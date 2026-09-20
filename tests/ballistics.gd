@@ -12,8 +12,8 @@
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const ARROW := preload("res://scenes/enemies/arrow.tscn")
 
-## VillageGreen plateau from world.gd: Rect2i(3, 2, 18, 8).
-const PLATEAU := Rect2i(3, 2, 18, 8)
+## CastleTerrace footprint from world.gd.
+const PLATEAU := Rect2i(15, 2, 9, 6)
 
 var _world: Node2D
 
@@ -23,6 +23,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+    preload("res://scripts/systems/input_setup.gd").ensure_actions()
     create_timer(30.0).timeout.connect(_on_timeout)
     _world = (load("res://scenes/world/world.tscn") as PackedScene).instantiate() as Node2D
     root.add_child(_world)

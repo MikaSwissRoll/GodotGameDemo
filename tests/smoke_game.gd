@@ -107,16 +107,16 @@ func _run() -> void:
     var fresh := current_scene
     assert(fresh != null and fresh != game, "Restart did not reload the scene")
     var fresh_ui := fresh.get_node("GameUI") as GameUI
-    assert(fresh_ui._mode == "menu" and paused, "Restart did not return to the main menu")
+    await process_frame
+    assert(not fresh_ui.overlay.visible and not paused, "Restart did not begin classic play")
     fresh_ui.start_requested.emit()
     fresh_ui.title_requested.emit()
     await process_frame
     await process_frame
     assert(current_scene != fresh, "Classic title action did not leave the classic scene")
-    assert(current_scene.scene_file_path == "res://scenes/main/run_game.tscn",
+    assert(current_scene.scene_file_path == "res://scenes/main/town_title.tscn",
         "Classic title action did not open the unified main menu")
-    var run_ui := current_scene.get_node("RunUI")
-    assert(paused and run_ui.mode == "menu",
+    assert(paused and current_scene.phase == "menu" and current_scene.menu.visible,
         "Unified main menu was not visible and paused after leaving classic mode")
 
     print("SMOKE PASS: menu, movement, dash, pause, combat, archer, quest, gold, completion, death, restart, unified title")

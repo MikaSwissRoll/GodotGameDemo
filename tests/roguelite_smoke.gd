@@ -92,12 +92,13 @@ func _run() -> void:
     fresh.ui.title_requested.emit()
     await process_frame
     await process_frame
-    var title := current_scene as RunGame
-    assert(title != null and title.phase == "menu" and paused, "Return to run title failed")
-    title.ui.classic_requested.emit()
-    await process_frame
-    await process_frame
-    assert(current_scene.has_node("QuestManager") and paused, "Classic adventure menu is inaccessible")
+    var title = current_scene
+    assert(title.scene_file_path == "res://scenes/main/town_title.tscn" and title.phase == "menu" and paused,
+        "Return to live town title failed")
+    title.transition_seconds = 0.2
+    title.menu.buttons[0].pressed.emit()
+    await create_timer(0.4).timeout
+    assert(title.game.has_node("QuestManager") and not paused, "Classic adventure is inaccessible")
     print("ROGUELITE PASS: guard strafe, rooms, rewards, shop, elite, win, reset, variation, death, classic entry")
     quit(0)
 

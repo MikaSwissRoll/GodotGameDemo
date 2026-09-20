@@ -31,7 +31,12 @@ Use `-Output` to keep comparison images:
 
 | Target | Captured state |
 | --- | --- |
-| `main_menu` | Roguelite title screen |
+| `main_menu` | Live classic town with the side menu |
+| `main_menu_focus` | Expedition action focused |
+| `main_menu_pressed` | Classic action held through a viewport mouse event |
+| `menu_transition` | Halfway through the classic camera zoom |
+| `classic_entry` | Same town after the camera handoff, with classic HUD |
+| `town_overview` | Town overview without the side menu |
 | `village` | Classic village and HUD with the active quest progress text |
 | `wilderness` | River crossing and borderland |
 | `enemy_camp` | Red faction camp and enemies |
@@ -45,6 +50,8 @@ Use `-Output` to keep comparison images:
 
 Each target instantiates the real project scene, enters the requested state,
 waits for rendered frames, freezes the state, and saves the viewport texture.
+The title targets also freeze explicitly processing scenery, set resident
+positions to their first route point, and fix sprite frames for repeatability.
 The screenshot is the actual Compatibility renderer output rather than a mockup
 or a reconstruction from node coordinates.
 
@@ -91,3 +98,14 @@ subtitle competed at the panel top. The revised capture
 `main_menu_after.png` uses narrower centered buttons, a centered shield and
 title stack, and dark subtitle text. The updated layout keeps all three actions
 inside the paper area and makes the menu hierarchy easier to scan.
+
+## Live town ownership
+
+The application starts in `scenes/main/town_title.tscn`. It holds the actual
+classic game instance and a separate overview camera. `town_title.gd` owns the
+protected transition; `town_menu.gd` owns the side menu. The classic world builds
+its buildings and ambient residents through `starting_town.gd`.
+
+Run `tests/town_title_smoke.gd` for real viewport mouse dispatch, paused player
+and enemy isolation, ambient activity, continuous classic handoff, pause,
+merchant/guard interactions, restart, and both mode-return routes.

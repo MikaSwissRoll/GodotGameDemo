@@ -393,12 +393,12 @@ func _on_restart_requested() -> void:
 func _on_title_requested() -> void:
     auto_start_next = false
     get_tree().paused = false
-    get_tree().reload_current_scene()
+    get_tree().change_scene_to_file("res://scenes/main/town_title.tscn")
 
 
 func _on_classic_requested() -> void:
     get_tree().paused = false
-    get_tree().change_scene_to_file("res://scenes/main/game.tscn")
+    get_tree().change_scene_to_file("res://scenes/main/town_title.tscn")
 
 
 func _on_quit_requested() -> void:

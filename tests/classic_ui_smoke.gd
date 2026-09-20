@@ -1,7 +1,7 @@
 extends SceneTree
 
 const CLASSIC_SCENE := "res://scenes/main/game.tscn"
-const MAIN_MENU_SCENE := "res://scenes/main/run_game.tscn"
+const MAIN_MENU_SCENE := "res://scenes/main/town_title.tscn"
 
 
 func _init() -> void:
@@ -37,8 +37,7 @@ func _run() -> void:
 
     assert(current_scene != null and current_scene.scene_file_path == MAIN_MENU_SCENE,
         "Classic title action did not open the unified main menu")
-    var run_ui := current_scene.get_node("RunUI")
-    assert(paused and run_ui.mode == "menu",
+    assert(paused and current_scene.phase == "menu" and current_scene.menu.visible,
         "Unified main menu was not visible and paused")
 
     print("CLASSIC UI SMOKE PASS: HUD separation and unified title return")

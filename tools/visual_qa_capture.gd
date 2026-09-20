@@ -1,10 +1,17 @@
 extends SceneTree
 
 const VIEWPORT_SIZE := Vector2i(1280, 720)
+const TITLE_SCENE := "res://scenes/main/town_title.tscn"
+const TITLE_TARGETS := ["main_menu", "main_menu_focus", "main_menu_pressed", "menu_transition", "classic_entry", "town_overview"]
 const RUN_SCENE := "res://scenes/main/run_game.tscn"
 const CLASSIC_SCENE := "res://scenes/main/game.tscn"
 const VALID_TARGETS := [
     "main_menu",
+    "main_menu_focus",
+    "main_menu_pressed",
+    "menu_transition",
+    "classic_entry",
+    "town_overview",
     "village",
     "wilderness",
     "enemy_camp",
@@ -35,6 +42,8 @@ func _run() -> void:
     var scene_path := CLASSIC_SCENE if _target in [
         "village", "wilderness", "enemy_camp", "dialogue_ui"
     ] else RUN_SCENE
+    if _target in TITLE_TARGETS:
+        scene_path = TITLE_SCENE
     var packed := load(scene_path) as PackedScene
     if packed == null:
         push_error("Visual QA could not load scene: %s" % scene_path)
@@ -104,10 +113,46 @@ func _parse_arguments() -> bool:
 
 
 func _configure_target(game: Node) -> void:
+    if _target in TITLE_TARGETS:
+        await _configure_title_target(game)
+        return
     if _target in ["main_menu", "combat", "merchant_shop", "pause_menu", "reward_overlay", "shop_overlay", "result_dead"]:
         await _configure_run_target(game)
     else:
         await _configure_classic_target(game)
+
+
+func _configure_title_target(title: Node) -> void:
+    if _target == "main_menu_focus":
+        title.menu.buttons[1].grab_focus()
+    elif _target == "main_menu_pressed":
+        var click := InputEventMouseButton.new()
+        click.position = title.menu.buttons[0].get_global_rect().get_center()
+        click.button_index = MOUSE_BUTTON_LEFT
+        click.pressed = true
+        root.push_input(click, true)
+    elif _target in ["classic_entry", "menu_transition"]:
+        title.start_classic()
+        title.transition.pause()
+        title.transition.custom_step(title.transition_seconds * (0.5 if _target == "menu_transition" else 1.1))
+        await _wait_frames(2)
+    elif _target == "town_overview":
+        title.menu.hide()
+    _freeze_art(title.game.get_node("World"))
+    title.game.player.sprite.pause()
+    title.game.player.sprite.process_mode = Node.PROCESS_MODE_DISABLED
+    paused = true
+
+
+func _freeze_art(node: Node) -> void:
+    if node is AnimatedSprite2D:
+        node.pause()
+        node.frame = mini(2, node.sprite_frames.get_frame_count(node.animation) - 1)
+    if node.is_in_group("town_resident"):
+        node.position = node.route[0]
+    for child in node.get_children():
+        _freeze_art(child)
+    node.process_mode = Node.PROCESS_MODE_DISABLED
 
 
 func _configure_run_target(game: Node) -> void:
@@ -167,7 +212,7 @@ func _configure_classic_target(game: Node) -> void:
     ui.start_requested.emit()
     match _target:
         "village":
-            player.global_position = Vector2(760, 790)
+            player.global_position = Vector2(1020, 920)
             # Exercise the longest current quest HUD state instead of the short
             # pre-quest prompt that cannot reveal quest/gold collisions.
             var quest := game.get_node("QuestManager") as QuestManager
@@ -177,7 +222,7 @@ func _configure_classic_target(game: Node) -> void:
         "enemy_camp":
             player.global_position = Vector2(4000, 800)
         "dialogue_ui":
-            player.global_position = Vector2(760, 790)
+            player.global_position = Vector2(1320, 920)
             ui.show_toast("守卫：盗匪袭击了村庄！请击败 5 名盗匪，并收集 5 枚金币。", 30.0)
     camera.reset_smoothing()
     if _target != "dialogue_ui":
