@@ -147,39 +147,25 @@ const SHIKASHI_BUBBLE := Rect2i(96, 0, 32, 32)
 ## Measured from the running scene, because the sprite metrics are misleading: a
 ## pawn frame is 192px but the character only occupies rows 64..134 of it, and the
 ## AnimatedSprite2D node ends up at scale 1.0 (not the 0.8 that the resident
-## script uses). With position y=-36 that puts the head at local y=-68, not the
-## -132 the frame height suggests, and not the -61.6 that a 0.8 scale implies.
-##
 ## Local-space placement for the marker and the interaction prompt.
 ##
-## Measured from the running scene rather than derived, because the sprite metrics
-## mislead in two ways: a pawn frame is 192px but the character only occupies rows
-## 64..134 of it, and the AnimatedSprite2D sits at position y=-36 with scale 1.0.
-## The engine therefore reports the guard's sprite at world (1390, 899) and its
-## head top at world y=867, which is local y=-66 -- not the -132 the frame size
-## suggests, and not the -61.6 that a 0.8 scale would give.
+## Sprite metrics mislead here, so these come from the running scene: a pawn frame
+## is 192px, but the character only occupies rows 64..134 of it, and the
+## AnimatedSprite2D sits at position y=-36 with scale 1.0. The topmost visible
+## pixel -- the hair, not the face -- is therefore local y=-68, not the -132 the
+## frame size suggests and not the -61.6 a 0.8 scale would give.
 ##
-## Both offsets were reduced to bring the bubble and the prompt close to the NPC.
+## The marker icon is 32px drawn at 2x, so its cell is 64px tall and its tail
+## hangs 11px below the cell centre. At -95 the cell bottom is -127 and the tail
+## tip -73, leaving 5px of clearance above the hair at -68. That is as close as the
+## bubble can sit without touching the sprite.
 ##
-## Measured from the running scene, because the sprite metrics mislead twice over:
-## a pawn frame is 192px, but the character only occupies rows 64..134 of it, and
-## the AnimatedSprite2D sits at position y=-36 with scale 1.0. The head top is
-## therefore local y=-66 -- not the -132 the frame size suggests, and not the
-## -61.6 a 0.8 scale would give.
-##
-## The marker icon is 32px drawn at 2x, so it is 64px tall and its tail hangs 11px
-## below the cell centre. The head top is local y=-66.
-##
-## Tuned against captured pixels rather than the engine probe alone: the capture
-## staging reports roughly 25px less clearance than a direct measurement does, so
-## the value that reads correctly in a capture is not the one the probe suggests.
-## At -175 a capture shows about a 20px gap between the tail and the hair. Smaller
-## magnitudes (-116, -137, -146) covered the head; -277 left the bubble floating
-## far above the NPC, which is the defect this replaced.
-const INTERACT_MARKER_Y := -175.0
+## Values further out (-146, -175, -277) were tried and read as detached from the
+## NPC, which is the defect this replaced.
+const INTERACT_MARKER_Y := -95.0
 const INTERACT_MARKER_X := 10.0
-## Under the bubble's tail, so the key prompt appears where the bubble was.
-const INTERACT_PROMPT_Y := -137.0
+## Sitting just under the bubble's tail.
+const INTERACT_PROMPT_Y := -77.0
 ## A gentle bob so the marker reads as a live invitation rather than a decal.
 const INTERACT_BOB := 4.0
 const INTERACT_BOB_SPEED := 2.6
