@@ -70,6 +70,18 @@ $Suite = Expand-List $Suite
 # The harness is shared infrastructure, not a suite.
 $INFRA = @('harness')
 
+## A suite is a script that extends the harness. Discovery is by content, not by
+## filename: `lab/` also holds the lab scene's own script and a screenshot capture
+## tool, and running either as a suite hangs or fails for reasons that have nothing
+## to do with validation.
+function Test-IsSuite([string]$path) {
+    $head = Get-Content -LiteralPath $path -TotalCount 4 -ErrorAction SilentlyContinue
+    foreach ($line in $head) {
+        if ($line -match 'extends\s+"res://tests_v2/harness\.gd"') { return $true }
+    }
+    return $false
+}
+
 function Get-Categories {
     $names = @()
     foreach ($dir in (Get-ChildItem -LiteralPath $v2Root -Directory | Sort-Object Name)) {
@@ -84,10 +96,26 @@ function Get-SuiteIndex {
         $dir = Join-Path $v2Root $category
         foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter '*.gd' -File | Sort-Object Name)) {
             if ($INFRA -contains $file.BaseName) { continue }
+            if (-not (Test-IsSuite $file.FullName)) { continue }
             $index += [pscustomobject]@{ Name = $file.BaseName; Category = $category; Path = $file.FullName }
         }
     }
     return $index
+}
+
+## Scripts under tests_v2/ that are deliberately not suites, so the map can say so
+## instead of silently omitting them.
+function Get-NonSuiteScripts {
+    $found = @()
+    foreach ($category in Get-Categories) {
+        $dir = Join-Path $v2Root $category
+        foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter '*.gd' -File | Sort-Object Name)) {
+            if ($INFRA -contains $file.BaseName) { continue }
+            if (Test-IsSuite $file.FullName) { continue }
+            $found += [pscustomobject]@{ Name = $file.BaseName; Category = $category }
+        }
+    }
+    return $found
 }
 
 function Show-Map {
@@ -100,11 +128,18 @@ function Show-Map {
     }
     foreach ($category in Get-Categories) {
         $inCategory = @($index | Where-Object { $_.Category -eq $category })
-        if ($inCategory.Count -eq 0) { continue }
+        $notSuites = @(Get-NonSuiteScripts | Where-Object { $_.Category -eq $category })
+        if ($inCategory.Count -eq 0 -and $notSuites.Count -eq 0) { continue }
         Write-Host ''
         Write-Host ("  {0}" -f $category) -ForegroundColor Yellow
         foreach ($suite in $inCategory) { Write-Host ("    {0}" -f $suite.Name) }
+        foreach ($other in $notSuites) {
+            Write-Host ("    {0}  (not a suite)" -f $other.Name) -ForegroundColor DarkGray
+        }
     }
+    Write-Host ''
+    Write-Host 'Lab captures are taken with the capture tool directly:' -ForegroundColor DarkGray
+    Write-Host '  godot --path . --script res://tests_v2/lab/capture_lab.gd -- --target=overview' -ForegroundColor DarkGray
     Write-Host ''
     Write-Host 'Usage:' -ForegroundColor Cyan
     Write-Host '  .\tests_v2\run.ps1 -Category <name>[,<name>]   run a category'

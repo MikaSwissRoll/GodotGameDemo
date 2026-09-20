@@ -23,12 +23,20 @@ rendered pixels. `-Headless` exists for suites that touch no viewport.
 | Category | What it answers | Mechanism |
 | --- | --- | --- |
 | `baseline` | Did this change break a core system that already worked? | Automated, fast |
-| `elevation` | Are the level, ramp, melee and ranged rules correct? | Automated, deterministic |
-| `scenarios` | Does spatial behaviour work — routing, ramps, projectiles? | Driven runtime scenarios in the lab |
-| `lab` | Is the terrain visually correct? | Screenshot capture + eyeball |
+| `scenarios` | Does spatial behaviour work — cliff blocking, ramp traversal, level consistency? | Driven runtime scenarios in the lab |
+| `lab` | The reference scene and its screenshot tool. **Not suites** — the runner lists them separately. | Capture + eyeball |
 
-Do not force all four into one mechanism. Logic that is binary and stable belongs in
-an automated check; navigation and terrain composition do not.
+Do not force all of them into one mechanism. Logic that is binary and stable belongs
+in an automated check; navigation and terrain composition do not.
+
+A suite is discovered by **content**, not filename: a file only counts if it
+`extends "res://tests_v2/harness.gd"`. That is why the lab's scene script and
+capture tool are listed as "not a suite" rather than being run as one.
+
+```powershell
+# lab screenshots (the capture tool, not a suite)
+godot --path . --script res://tests_v2/lab/capture_lab.gd -- --target=overview
+```
 
 ## How a suite is written
 
