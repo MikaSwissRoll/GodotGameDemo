@@ -4,6 +4,7 @@ class_name ArcherEnemy
 const SPRITES := preload("res://scripts/systems/sprite_frames_factory.gd")
 const FEEDBACK := preload("res://scripts/systems/combat_feedback.gd")
 const PARTY := preload("res://scripts/systems/party.gd")
+const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const ARROW_SCENE := preload("res://scenes/enemies/arrow.tscn")
 const RED_ARCHER := "res://asset/Units/Red Units/Archer/"
 
@@ -78,8 +79,16 @@ func _physics_process(delta: float) -> void:
     var direction := to_player.normalized()
     if distance < detection_range:
         sprite.flip_h = direction.x < 0.0
+    # A cliff face is not a path. Arrows still fly over terrain, but the archer
+    # itself no longer climbs a cliff to reposition, and it does not fire when the
+    # only thing between it and the target is a cliff face it is standing against.
+    var same_level := not _elevation_blocks(target.global_position)
     if _shooting:
         velocity = _knockback
+    elif not same_level:
+        velocity = _knockback
+        if sprite.animation != "idle" and not _shooting:
+            sprite.play("idle")
     elif distance < detection_range and distance < preferred_range * 0.65:
         velocity = -direction * move_speed + _knockback
         if sprite.animation != "run":
@@ -146,6 +155,13 @@ func _nearest_party_actor() -> Node2D:
             best_distance = distance
             best = node
     return best
+
+
+## True when the straight line to the target would cross between elevation levels.
+## Arrows are not told about elevation and still fly over cliffs, but the archer
+## itself must not climb one to reposition.
+func _elevation_blocks(target_point: Vector2) -> bool:
+    return ENV.elevation_at(global_position) != ENV.elevation_at(target_point)
 
 
 func _shoot(direction: Vector2) -> void:

@@ -138,6 +138,7 @@ proven collision clamps: a 90px push into the Guard is stopped 60px → 30px fro
 centre, and a 90px push into an enemy is stopped 74px → 38px. Each is exactly the
 sum of the two capsule radii.
 
+
 ## Second follow-up: "hired, but still never attacks"
 
 Reported after the first fixes. Investigated read-only first, then fixed.
@@ -174,3 +175,51 @@ Why the suites missed it, and what now covers it:
 - Every companion suite used only the placed story enemies, which happened to have
   the group. `companion_archer_smoke` now acquires a **spawned** free-play enemy.
 - The archer's failure to retarget is now asserted directly.
+
+## Third follow-up: terrain crossing, and NPC dialogue backing
+
+**Reported: enemy soldiers crossed terrain, ignoring the high ground.** Confirmed and
+fixed. `add_plateau` only walls a cliff's *bottom* edge and only when collision is
+requested, so the sides and top of the camp rise were wide open, and enemy movement
+had no elevation check at all — only the player's melee did.
+
+Measured before the fix, pushing a body in from four directions:
+
+| Plateau | from below | from left | from right | from above |
+| --- | --- | --- | --- | --- |
+| Castle terrace | blocked | blocked | blocked | **entered** |
+| Camp rise | blocked | **entered** | **entered** | **entered** |
+
+An enemy also attacked the player from the other side of a cliff, since only the
+player's melee refused that.
+
+Fixed by rule rather than by geometry (chosen over walling the plateaus, which would
+have needed ramp and spawn-point changes): enemies do not climb, do not strike
+across, and back off to wait clear of a cliff they cannot cross. One spawn point,
+`(3890, 600)` on the camp rise, moved to the low ground because an enemy spawned
+there could no longer reach the player at all.
+
+**Added: NPC dialogue backing.** NPC lines now sit on a panel using the same
+`pouch_panel_style()` as the potion readout — `#26362f` at 82% with a 2px gold
+border. The panel is measured from the rendered text and appears and disappears with
+the line. Only NPC speech is backed (14 lines beginning `守卫：` / `商人：` /
+`雇佣兵：`); status toasts such as 格挡成功 stay unbacked. Verified by capture: 6471
+text pixels on the backed line against 575 for the plain one.
+
+The old 试玩完成 completion line became `守卫：感谢你，勇士。村庄安全了。` — it fires
+from the Guard's hand-in and was the only one of his lines with no speaker prefix.
+
+### Traps found while doing this
+
+- **`elevation_at` samples a 64px tile.** A test that placed the player 10px above
+  the cliff line was still on the plateau's last tile row, so its "across the
+  cliff" check was silently testing two actors on the same level. Assert the setup.
+- **A body spawned inside the cliff wall gets ejected upward.** The wall spans
+  cliff_y to cliff_y+58; placing an enemy at cliff_y+8 made it appear to have climbed
+  the cliff when it had really been pushed out of the wall.
+- **`Control.position` is derived from its anchors.** Assigning `position.x` on an
+  anchor-centred control is silently overwritten; the toast panel landed hard against
+  the left edge until its width went through `offset_left`/`offset_right`.
+- **A label wider than its parent can fail to paint.** The toast label's minimum
+  width exceeded its panel (838 vs 780), so the NPC line rendered nothing until the
+  text size was stepped down to 20pt and the panel cap raised to 940px.

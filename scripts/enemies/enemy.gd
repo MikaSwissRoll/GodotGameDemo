@@ -4,6 +4,7 @@ extends CharacterBody2D
 const SPRITES := preload("res://scripts/systems/sprite_frames_factory.gd")
 const FEEDBACK := preload("res://scripts/systems/combat_feedback.gd")
 const PARTY := preload("res://scripts/systems/party.gd")
+const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const RED_WARRIOR := "res://asset/Units/Red Units/Warrior/"
 
 signal defeated(at: Vector2)
@@ -23,6 +24,16 @@ signal health_changed(current: int, maximum: int)
 ## target, which keeps existing player targeting stable.
 @export var companion_preference: float = 0.6
 
+## How far an enemy backs away from a cliff it cannot climb, so it waits clear of the
+## wall instead of pressing against it. It will not follow a target across the
+## boundary and it has no pathfinding, so standing at the foot of the cliff only ever
+## looked like a bug.
+@export var cliff_hold_distance: float = 110.0
+@export var cliff_back_off_speed: float = 70.0
+## A pause after backing off, so the enemy cannot oscillate between approaching and
+## retreating while a target stays on the plateau above.
+@export var approach_retry_seconds: float = 1.6
+
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var hurtbox: Area2D = $Hurtbox
 @onready var attack_hitbox: Area2D = $AttackHitbox
@@ -40,6 +51,21 @@ var _knockback := Vector2.ZERO
 var _facing := Vector2.LEFT
 var _attack_direction := Vector2.LEFT
 var _retarget_left := 0.0
+## Set while the enemy is holding clear of a cliff it cannot climb.
+var _holding_ground := false
+## Set after backing off, so it does not immediately walk back to the cliff.
+var _approach_retry_left := 0.0
+
+
+## True when the straight line to the target would cross between elevation levels.
+##
+## The plateau registry only walls a cliff's bottom edge, so an enemy used to walk
+## up a cliff face onto the high ground and attack from there. Terrain is a real
+## boundary for the player's melee in both directions, so it is now a boundary for
+## the enemy too: it may fight along a level, or walk up a ramp, but it may not
+## climb a cliff or reach across one.
+func _elevation_blocks(target_point: Vector2) -> bool:
+    return ENV.elevation_at(global_position) != ENV.elevation_at(target_point)
 
 
 func _ready() -> void:
@@ -83,6 +109,7 @@ func _physics_process(delta: float) -> void:
         return
     _attack_left = maxf(0.0, _attack_left - delta)
     _flash_left = maxf(0.0, _flash_left - delta)
+    _approach_retry_left = maxf(0.0, _approach_retry_left - delta)
     _knockback = _knockback.move_toward(Vector2.ZERO, 750.0 * delta)
     var base_color := Color("#ffe0a2") if elite else Color.WHITE
     sprite.modulate = Color(1.0, 0.42, 0.42) if _flash_left > 0.0 else base_color
@@ -99,12 +126,21 @@ func _physics_process(delta: float) -> void:
         _facing = direction
         sprite.flip_h = direction.x < 0.0
 
+    # A cliff face is not a path. The enemy still closes along its own level and can
+    # follow a ramp, because stepping onto a ramp tile does not change elevation,
+    # but it will not walk up or down a cliff to reach the target.
+    var same_level := not _elevation_blocks(target.global_position)
+    if same_level:
+        _holding_ground = false
+    if _update_cliff_hold(delta, same_level):
+        return
+
     if _attacking:
         velocity = _knockback
-    elif distance <= attack_range and _attack_left <= 0.0:
+    elif same_level and distance <= attack_range and _attack_left <= 0.0:
         velocity = _knockback
         _start_attack()
-    elif distance < detection_range and distance > attack_range * 0.82:
+    elif same_level and distance < detection_range and distance > attack_range * 0.82:
         velocity = direction * move_speed + _knockback
         if sprite.animation != "run":
             sprite.play("run")
@@ -196,11 +232,71 @@ func _start_attack() -> void:
         _attacking = false
 
 
+## Keeps an enemy off a cliff it cannot climb, instead of pressing against the wall.
+##
+## There is no pathfinding here, so a target on the plateau above is simply out of
+## reach. Rather than stand at the foot of the cliff looking broken, the enemy walks
+## back until it is clear of the wall and waits there. Once it has backed off it also
+## pauses before trying again, so a target who stays on the edge cannot make it
+## oscillate between approaching and retreating.
+##
+## Returns true when it has taken over movement for this frame.
+func _update_cliff_hold(delta: float, same_level: bool) -> bool:
+    if same_level:
+        return false
+    var to_target := target.global_position - global_position
+    var away := -to_target
+    if away.length() < 1.0:
+        away = Vector2.DOWN
+    away = away.normalized()
+
+    if _approach_retry_left > 0.0:
+        # Clear of the wall: stand and wait out the retry pause.
+        velocity = _knockback
+        _idle()
+        return true
+
+    # Too close to the cliff it cannot cross: walk away from it.
+    if to_target.length() < cliff_hold_distance:
+        _holding_ground = true
+        velocity = away * cliff_back_off_speed + _knockback
+        _facing = away
+        sprite.flip_h = away.x < 0.0
+        _run()
+        move_and_slide()
+        return true
+
+    if _holding_ground:
+        # Far enough now. Stop and start the retry pause.
+        _holding_ground = false
+        _approach_retry_left = approach_retry_seconds
+        velocity = _knockback
+        _idle()
+        return true
+    return false
+
+
+func _idle() -> void:
+    if sprite.animation != "idle" and not _attacking:
+        sprite.play("idle")
+
+
+func _run() -> void:
+    if sprite.animation != "run":
+        sprite.play("run")
+
+
 func _on_attack_area_entered(area: Area2D) -> void:
     if not _attacking or _hit_this_swing:
         return
     var victim := area.get_parent()
     if not PARTY.is_party_member(victim):
+        return
+    # A cliff is a boundary for the blow as well as for the walk. Gating only the
+    # decision to attack left a swing that straddled the edge able to land, because
+    # the hitbox is offset in front of the enemy and can cross the line its own feet
+    # have not crossed. The player's melee has always refused the same way.
+    if _elevation_blocks((victim as Node2D).global_position):
         return
     _hit_this_swing = true
     victim.take_damage(damage, _attack_direction)

@@ -29,6 +29,8 @@ const VALID_TARGETS := [
     "recruit_offer",
     "companion_follow",
     "companion_combat",
+    "npc_line",
+    "toast_plain",
     "pause_menu",
     "reward_overlay",
     "shop_overlay",
@@ -126,7 +128,8 @@ func _parse_arguments() -> bool:
 const CLASSIC_TARGETS := [
     "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far",
     "guard_tutorial", "supply_tutorial", "free_play",
-    "recruit_offer", "companion_follow", "companion_combat"
+    "recruit_offer", "companion_follow", "companion_combat",
+    "npc_line", "toast_plain"
 ]
 
 
@@ -345,9 +348,20 @@ func _configure_classic_target(game: Node) -> void:
             # Outside every NPC radius, so the guiding bubbles are on screen and
             # no key prompt is. Framed near the guard so both are comparable.
             player.global_position = Vector2(1080, 920)
+        "npc_line":
+            # An NPC speaking, on its backing panel. The longest Guard line, so the
+            # panel has to be measured rather than assumed to fit.
+            player.global_position = Vector2(1240, 620)
+            ui.show_npc_line("守卫：训练结束了。敌人已经在村外集结，击败 5 名敌兵，把他们抢走的金币带回来。", 30.0)
+        "toast_plain":
+            # A status line, which must stay unbacked so it does not read as speech.
+            player.global_position = Vector2(1240, 620)
+            ui.show_toast("格挡成功！", 30.0)
     camera.reset_smoothing()
-    if _target not in ["dialogue_ui", "npc_marker_far"]:
+    # The two toast targets own their line, so the blanket hide must not clear it.
+    if _target not in ["dialogue_ui", "npc_marker_far", "npc_line", "toast_plain"]:
         ui.toast_label.visible = false
+        ui.toast_backing.visible = false
     await _wait_frames(4)
     paused = true
 

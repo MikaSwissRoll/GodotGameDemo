@@ -116,6 +116,34 @@ from a shared "last defeated" field: two enemies can die in the same frame, and 
 shared field would pay the wrong amount to one of them. An archer pays more because
 it is the harder kill, shooting back from range.
 
+## Elevation is a boundary for melee enemies
+
+`ENV.elevation_at(point)` answers whether a point is on high ground, sampling a
+**64px tile**, so a point a few pixels above a cliff line is still on the plateau's
+last tile row. Two things follow from that:
+
+- The player's melee has always refused to connect across a level boundary.
+- Melee enemies now obey the same rule, in three places:
+  1. **They do not climb.** `Enemy._physics_process` will not step toward a target
+     on another level, and `ArcherEnemy` will not reposition across one. Arrows still
+     fly over terrain in both directions; only the archer's own feet are restricted.
+  2. **They do not strike across.** `_on_attack_area_entered` refuses a victim on the
+     other level. This is separate from (1): the melee hitbox sits 55px in front of
+     the enemy, so it can cross a line the enemy's feet have not crossed.
+  3. **They wait clear of a cliff they cannot cross.** There is no pathfinding, so an
+     unreachable target would otherwise leave the enemy pressed against the wall.
+     It backs off until `cliff_hold_distance` (110px) away and pauses
+     `approach_retry_seconds` (1.6s) before trying again — the pause is what stops a
+     target standing on the edge from making it oscillate.
+
+The plateau builder only walls a cliff's **bottom edge**; the sides and top of a
+plateau are open. That is why the rule lives in the characters rather than in the
+terrain, and why the camp rise was crossable from three directions.
+
+Free-play spawn points must therefore be on the low ground or reachable by a ramp.
+`FREE_PLAY_SPAWNS` had one point on the camp rise, which would have stranded an
+enemy where it could never reach the player; it moved below the cliff wall.
+
 ## Follower states
 
 One state machine in `Follower` (`scripts/party/follower.gd`), no per-state scripts:

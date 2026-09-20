@@ -25,6 +25,20 @@ const EDGE := Color("#c5ab72")
 const MODAL_CONTENT_TOP := 180.0
 const MODAL_CONTENT_HEIGHT := 330.0
 const ROW_GAP := 16.0
+## NPC line backing: padding around the measured text, and a cap so a long speech
+## cannot stretch a panel across the whole screen.
+const TOAST_PAD_X := 22.0
+const TOAST_PAD_Y := 10.0
+const TOAST_MIN_WIDTH := 160.0
+## The longest Guard briefing is 40 characters. At 22pt that measures 838px, which
+## overflowed the panel, so NPC lines step down a size and the cap is generous
+## enough that no current line is clipped. Measured, not guessed.
+const TOAST_MAX_WIDTH := 940.0
+const TOAST_FONT_SIZE := 20
+## Status lines keep the size they have always had.
+const PLAIN_TOAST_FONT_SIZE := 22
+## Distance from the bottom of the screen to the top of an NPC line panel.
+const TOAST_BOTTOM := -166.0
 const QUEST_TEXT_RIGHT := -178.0
 const QUEST_TEXT_MAX_WIDTH := 520.0
 const QUEST_ICON_SIZE := 40.0
@@ -41,6 +55,8 @@ var quest_label: Label
 var potion_label: Label
 var boost_label: Label
 var toast_label: Label
+## Backing panel behind an NPC line. Hidden for ordinary status messages.
+var toast_backing: Panel
 var hud_root: Control
 var overlay: ColorRect
 var overlay_panel: Panel
@@ -78,7 +94,9 @@ func _process(delta: float) -> void:
     if _toast_time > 0.0:
         _toast_time -= delta
         if _toast_time <= 0.0:
+            # The backing goes with the line, so an NPC panel never outlives its text.
             toast_label.visible = false
+            toast_backing.visible = false
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -167,9 +185,57 @@ func _layout_quest_group() -> void:
 
 
 func show_toast(message: String, seconds: float = 2.8) -> void:
+    _set_toast(message, seconds, false)
+
+
+## An NPC speaking, rather than a status line. Identical to `show_toast` except the
+## line gets a backing panel so it stays legible over ground and scenery.
+func show_npc_line(message: String, seconds: float = 2.8) -> void:
+    _set_toast(message, seconds, true)
+
+
+func _set_toast(message: String, seconds: float, spoken: bool) -> void:
     toast_label.text = message
+    if spoken:
+        _fit_toast_backing(message)
+        toast_backing.show()
+    else:
+        toast_backing.hide()
+        # Back to the size a plain status line has always used, in case an NPC line
+        # set the smaller one before it.
+        toast_label.add_theme_font_size_override("font_size", PLAIN_TOAST_FONT_SIZE)
     toast_label.visible = true
     _toast_time = seconds
+
+
+## Sizes the backing to the rendered line. Measured from the actual font at the
+## actual size, because a character count is wrong for mixed CJK and ASCII.
+##
+## The label fills the backing, so the two can never disagree about where the text
+## sits and the panel grows with the line instead of being a fixed slab.
+##
+## Width goes through `offset_left`/`offset_right`, not `position`: the control is
+## centred on its anchors, so its position is derived from those offsets every
+## layout pass and assigning `position` is silently overwritten. That mistake put
+## the panel hard against the left edge instead of under the text.
+func _fit_toast_backing(message: String) -> void:
+    var font := toast_label.get_theme_font("font")
+    var font_size := TOAST_FONT_SIZE
+    toast_label.add_theme_font_size_override("font_size", font_size)
+    var text_width := font.get_string_size(
+        message, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+    var width := clampf(text_width + TOAST_PAD_X * 2.0, TOAST_MIN_WIDTH, TOAST_MAX_WIDTH)
+    var height := TOAST_PAD_Y * 2.0 + font.get_height(font_size)
+    toast_backing.offset_left = -width * 0.5
+    toast_backing.offset_right = width * 0.5
+    toast_backing.offset_top = TOAST_BOTTOM
+    toast_backing.offset_bottom = TOAST_BOTTOM + height
+    # The label is positioned explicitly rather than left to anchors: with autowrap
+    # off its minimum width can exceed the panel, and a label wider than its parent
+    # is the one arrangement that reliably failed to paint. Pinning the rect keeps
+    # the text inside the panel at every line length.
+    toast_label.position = Vector2.ZERO
+    toast_label.size = Vector2(width, height)
 
 
 func hide_overlay() -> void:
@@ -291,14 +357,25 @@ func _build_hud(root: Control) -> void:
     controls.anchor_top = 1.0
     controls.anchor_bottom = 1.0
     controls.text = "WASD 移动 · 左键挥砍 · 右键举盾 · Shift 冲刺 · E 交谈 · 1／2 药水 · Esc 暂停"
-    toast_label = _label(root, Vector2(-400, -170), Vector2(800, 90), 22)
-    toast_label.anchor_left = 0.5
-    toast_label.anchor_right = 0.5
-    toast_label.anchor_top = 1.0
-    toast_label.anchor_bottom = 1.0
+    # NPC lines sit on a backing panel so they stay legible over ground and scenery.
+    # The label fills the panel, so the two cannot disagree about where the text is.
+    toast_backing = Panel.new()
+    toast_backing.add_theme_stylebox_override("panel", UI.pouch_panel_style())
+    toast_backing.anchor_left = 0.5
+    toast_backing.anchor_right = 0.5
+    toast_backing.anchor_top = 1.0
+    toast_backing.anchor_bottom = 1.0
+    toast_backing.offset_top = -166.0
+    toast_backing.offset_bottom = -106.0
+    toast_backing.offset_left = -200.0
+    toast_backing.offset_right = 200.0
+    toast_backing.visible = false
+    root.add_child(toast_backing)
+
+    toast_label = _label(toast_backing, Vector2.ZERO, Vector2.ZERO, 22)
     toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     toast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    toast_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    toast_label.autowrap_mode = TextServer.AUTOWRAP_OFF
     toast_label.visible = false
 
 

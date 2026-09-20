@@ -19,7 +19,10 @@ static var restart_into_play := false
 ## the main quest already sends the player to.
 const FREE_PLAY_SPAWNS := [
     Vector2(2760, 790), Vector2(2940, 1020), Vector2(3160, 810),
-    Vector2(3590, 850), Vector2(3890, 600), Vector2(4400, 830),
+    # (3890, 600) used to sit on the camp rise, which enemies can no longer climb.
+    # An enemy spawned up there could never reach the player, so this point moved
+    # below the cliff wall (which spans y 640..698) onto the low ground.
+    Vector2(3590, 850), Vector2(3890, 760), Vector2(4400, 830),
     Vector2(3300, 1150), Vector2(4100, 1150),
 ]
 const MELEE_ENEMY := preload("res://scenes/enemies/melee_enemy.tscn")
@@ -192,11 +195,11 @@ func _on_guard_interacted() -> void:
         ClassicProgression.Phase.GUARD_TUTORIAL:
             _guard_training_talk()
         ClassicProgression.Phase.MERCHANT_TUTORIAL:
-            ui.show_toast("守卫：先去找商人准备些补给吧。", 3.0)
+            ui.show_npc_line("守卫：先去找商人准备些补给吧。", 3.0)
         ClassicProgression.Phase.MAIN_QUEST:
             _guard_main_quest_talk()
         _:
-            ui.show_toast("守卫：干得不错。外围还有敌人活动，想练手就去清理他们。", 4.0)
+            ui.show_npc_line("守卫：干得不错。外围还有敌人活动，想练手就去清理他们。", 4.0)
 
 
 ## The Guard briefing, then ongoing reminders, then the hand-in. Split by training
@@ -208,25 +211,25 @@ func _guard_training_talk() -> void:
     if not progress.guard_briefed:
         progress.guard_briefed = true
         progress.changed.emit()
-        ui.show_toast("守卫：第一次来到边境吧？出发之前，先确认你掌握了基本动作。", 5.0)
+        ui.show_npc_line("守卫：第一次来到边境吧？出发之前，先确认你掌握了基本动作。", 5.0)
         return
     match progress.training_step():
         ClassicProgression.Training.MOVE:
-            ui.show_toast("守卫：先用 WASD 走一走，四个方向都试试。")
+            ui.show_npc_line("守卫：先用 WASD 走一走，四个方向都试试。")
         ClassicProgression.Training.ATTACK:
-            ui.show_toast("守卫：很好。挥一刀给我看看。")
+            ui.show_npc_line("守卫：很好。挥一刀给我看看。")
         _:
-            ui.show_toast("守卫：最后，举盾架住一次。")
+            ui.show_npc_line("守卫：最后，举盾架住一次。")
 
 
 func _pay_guard_reward() -> void:
     if progress.guard_reward_paid:
-        ui.show_toast("守卫：去和商人谈谈吧。")
+        ui.show_npc_line("守卫：去和商人谈谈吧。")
         return
     progress.guard_reward_paid = true
     gold += ClassicProgression.GUARD_REWARD
     ui.set_gold(gold)
-    ui.show_toast("守卫：不错，基本动作已经掌握了。记住，不要把精力全用在进攻上。", 5.0)
+    ui.show_npc_line("守卫：不错，基本动作已经掌握了。记住，不要把精力全用在进攻上。", 5.0)
     ui.show_reward_feedback("获得 %d 金币" % ClassicProgression.GUARD_REWARD)
     progress.start_merchant_tutorial()
 
@@ -235,13 +238,13 @@ func _guard_main_quest_talk() -> void:
     match quest.state:
         QuestManager.QuestState.AVAILABLE:
             quest.accept_quest()
-            ui.show_toast("守卫：训练结束了。敌人已经在村外集结，击败 5 名敌兵，把他们抢走的金币带回来。", 5.5)
+            ui.show_npc_line("守卫：训练结束了。敌人已经在村外集结，击败 5 名敌兵，把他们抢走的金币带回来。", 5.5)
         QuestManager.QuestState.ACTIVE:
-            ui.show_toast("守卫：请阻止桥对面的盗匪。")
+            ui.show_npc_line("守卫：请阻止桥对面的盗匪。")
         QuestManager.QuestState.READY_TO_TURN_IN:
             quest.turn_in_quest()
         _:
-            ui.show_toast("守卫：这一带暂时安全了。")
+            ui.show_npc_line("守卫：这一带暂时安全了。")
 
 
 func _on_merchant_interacted() -> void:
@@ -254,7 +257,7 @@ func _on_merchant_interacted() -> void:
             and not progress.merchant_briefed:
         progress.merchant_briefed = true
         progress.changed.emit()
-        ui.show_toast("商人：准备出发了吗？真正的战斗可不只靠挥剑。", 4.5)
+        ui.show_npc_line("商人：准备出发了吗？真正的战斗可不只靠挥剑。", 4.5)
     get_tree().paused = true
     ui.show_shop(gold, health_potion_price, stamina_potion_price, progress.merchant_dialogue())
 
@@ -379,7 +382,9 @@ func _on_quest_changed() -> void:
 ## play: the reward is paid, the story state moves on, and the player stays in the
 ## world. The old 试玩完成 modal and its pause are gone.
 func _on_quest_completed() -> void:
-    ui.show_toast("任务完成！感谢你，勇士。村庄安全了。", 3.0)
+    # Speaks as the Guard, because this fires from his hand-in. It used to be the
+    # only one of his lines with no speaker prefix, which read as narration.
+    ui.show_npc_line("守卫：感谢你，勇士。村庄安全了。", 3.0)
     progress.start_free_play()
 
 
@@ -393,7 +398,7 @@ func _on_progress_changed() -> void:
 func _on_phase_changed(phase: int) -> void:
     match phase:
         ClassicProgression.Phase.MAIN_QUEST:
-            ui.show_toast("守卫：训练结束了，现在该处理真正的问题了。", 4.5)
+            ui.show_npc_line("守卫：训练结束了，现在该处理真正的问题了。", 4.5)
         ClassicProgression.Phase.FREE_PLAY:
             ui.show_toast("边境暂时安全了。外围仍有敌人出没，随时可以去清理。", 5.0)
 
@@ -478,7 +483,7 @@ func _on_recruit_accepted() -> void:
     _hire_companion()
     ui.hide_overlay()
     get_tree().paused = false
-    ui.show_toast("雇佣兵：成交。接下来的路，我和你一起走。", 4.0)
+    ui.show_npc_line("雇佣兵：成交。接下来的路，我和你一起走。", 4.0)
 
 
 func _on_recruit_declined() -> void:
