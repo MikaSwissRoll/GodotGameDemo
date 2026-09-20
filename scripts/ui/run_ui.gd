@@ -50,7 +50,9 @@ signal restart_requested
 signal title_requested
 
 var health_bar: TinyBar
+var health_label: Label
 var stamina_bar: TinyBar
+var stamina_label: Label
 var boost_label: Label
 var gold_label: Label
 var stage_label: Label
@@ -102,11 +104,13 @@ func _unhandled_input(event: InputEvent) -> void:
 func set_health(current: int, maximum: int) -> void:
     health_bar.max_value = maximum
     health_bar.value = current
+    health_label.text = "生命  %d / %d" % [current, maximum]
 
 
 func set_stamina(current: float, maximum: float) -> void:
     stamina_bar.max_value = maximum
     stamina_bar.value = current
+    stamina_label.text = "精力  %d / %d" % [ceili(current), ceili(maximum)]
 
 
 ## Low-stamina warning. Level 1 is the shallow threshold, level 2 the deep one and
@@ -234,15 +238,19 @@ func _upgrade_button_text() -> String:
 
 
 func _build_hud(root: Control) -> void:
-    # No backing panel and no numeric labels: the art carries the meaning. The
-    # bars stack directly, health above stamina, with the shorter stamina bar
-    # signalling which is which.
-    health_bar = _bar(root, Vector2(20, 20), "big", 288.0)
-    stamina_bar = _bar(root, Vector2(20, 68), "small", 232.0)
+    # Health and stamina carry the same numeric labels and the same block layout as
+    # the classic HUD, so the two modes read identically: a label over its bar, big
+    # bar for health, short bar for stamina. The bar art already carried the
+    # meaning, but the numbers are what let a player judge a cost before paying it.
+    health_label = _label(root, Vector2(20, 20), Vector2(280, 26), 19)
+    health_bar = _bar(root, Vector2(20, 48), "big", 288.0)
+    stamina_label = _label(root, Vector2(20, 104), Vector2(280, 26), 19)
+    stamina_bar = _bar(root, Vector2(20, 132), "small", 232.0)
     # No warning icon here: the stamina state icon rides above the character, so it
     # points at whoever the warning applies to. See Player._state_icon.
 
-    boost_label = _label(root, Vector2(20, 98), Vector2(310, 29), 17)
+    # Below the stamina bar rather than over it, now that the bars sit lower.
+    boost_label = _label(root, Vector2(20, 160), Vector2(310, 29), 17)
     boost_label.visible = false
 
     UI.add_icon(root, "res://asset/UI Elements/UI Elements/Icons/Icon_03.png", Vector2(1125, 20), Vector2(40, 40))
