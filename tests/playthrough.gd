@@ -7,6 +7,36 @@ var player: Player
 var quest: QuestManager
 var guard: VillageGuard
 
+## Measured route from the village to the eastern camp.
+##
+## A straight line does not work here and is not supposed to: the terrain is
+## designed to block it. Measured by probing eastbound lanes with move_and_collide
+## and then walking each leg:
+##
+##   - moving east from the guard, the village houses stop the player near x=1630
+##     on the enemy lane (y~800) and near x=1470 on y~700..750
+##   - the river bank stops it near x=2286 on the y=900..1000 lanes
+##   - only the y~850 lane runs clear from the village through to the camp, and
+##     the bridge deck spans y 704..896 at x 2280..2608, so it crosses on that lane
+##   - the enemies start at x=2760 and chase, reaching the bridge's east end, so
+##     the route stops at x=2500, on the deck. Walking even 150px further gets the
+##     player killed before any fight starts.
+##
+## If the layout changes again, re-measure rather than editing these by eye.
+const CAMP_ROUTE: Array[Vector2] = [
+    Vector2(1560, 850),   # step off the guard's lane into the clear lane
+    Vector2(2200, 850),   # run east past the village frontage
+    Vector2(2500, 850),   # stop on the bridge deck, short of the enemy camp
+]
+## The crossing reversed, then a staging point west of the guard: the guard ends
+## the route with a tight tolerance, and approaching on the same lane keeps the
+## last leg a straight walk.
+const RETURN_ROUTE: Array[Vector2] = [
+    Vector2(2200, 850),
+    Vector2(1560, 850),
+    Vector2(1470, 940),
+]
+
 
 func _init() -> void:
     call_deferred("_run")
@@ -31,22 +61,30 @@ func _run() -> void:
         _fail("Quest did not start")
         return
 
+    # Cross the bridge only. The enemies chase the player, so the route must not
+    # try to walk deep into the camp: _walk_to presses toward a fixed point and
+    # will keep pushing against a blocking enemy while taking hits, which killed
+    # the player before any fight began. _fight() owns closing the distance.
+    if not await _walk_route(CAMP_ROUTE, "Could not cross to the east bank"):
+        return
+
     for enemy_name in ["MeleeEnemy1", "MeleeEnemy2", "MeleeEnemy3", "MeleeEnemy4", "MeleeEnemy5"]:
-        if enemy_name == "MeleeEnemy3":
-            if not await _walk_to(Vector2(2250, 800), 600):
-                _fail("Could not reach bridge west bank")
-                return
-            if not await _walk_to(Vector2(2630, 800), 300):
-                _fail("Could not cross bridge")
-                return
         var enemy := game.get_node(enemy_name) as Enemy
+        # Stay in the clear bridge lane rather than trailing a chasing enemy into
+        # whatever terrain it happens to stand on.
+        if player.global_position.distance_to(enemy.global_position) > 420.0:
+            if not await _walk_to(Vector2(2300, 850), 400):
+                _fail("Could not return to the bridge lane before fighting %s" % enemy_name)
+                return
         if not await _fight(enemy, 800):
-            _fail("Could not defeat " + enemy_name)
+            _fail("Could not defeat %s; player at %s, enemy at %s, HP=%d" % [
+                enemy_name, player.global_position, enemy.global_position, player.health])
             return
         var coin := _nearest_gold(enemy.global_position)
         if coin != null:
             if not await _walk_to(coin.global_position, 180):
-                _fail("Could not collect gold from " + enemy_name)
+                _fail("Could not collect gold from %s; player at %s, coin at %s" % [
+                    enemy_name, player.global_position, coin.global_position])
                 return
         print("PLAYTHROUGH: ", enemy_name, " defeated; HP=", player.health,
             " enemies=", quest.bandits_defeated, " gold=", quest.gold_collected)
@@ -54,14 +92,9 @@ func _run() -> void:
     if quest.state != QuestManager.QuestState.READY_TO_TURN_IN:
         _fail("Quest did not become ready")
         return
-    if not await _walk_to(Vector2(2630, 800), 900):
-        _fail("Could not reach bridge east bank")
-        return
-    if not await _walk_to(Vector2(2250, 800), 300):
-        _fail("Could not cross bridge on return")
-        return
-    if not await _walk_to(guard.global_position + Vector2(-38, 0), 1100):
-        _fail("Could not return to the Guard")
+    var home_route: Array[Vector2] = RETURN_ROUTE.duplicate()
+    home_route.append(guard.global_position + Vector2(-38, 0))
+    if not await _walk_route(home_route, "Could not return to the Guard"):
         return
     _talk()
     if quest.state != QuestManager.QuestState.COMPLETED:
@@ -71,13 +104,29 @@ func _run() -> void:
     quit(0)
 
 
-func _walk_to(destination: Vector2, max_frames: int) -> bool:
+## Walk a list of waypoints in order. Used where the terrain makes a straight line
+## impossible: the village houses block the direct east exit and the river bank
+## blocks everything except the bridge lane, so the route has to be stated rather
+## than assumed. See docs/SCENE_WORKFLOW.md.
+func _walk_route(route: Array[Vector2], failure: String) -> bool:
+    var index := 0
+    for point in route:
+        index += 1
+        if not await _walk_to(point, 700, 12.0):
+            _fail("%s (leg %d/%d to %s; player at %s)" % [
+                failure, index, route.size(), point, player.global_position])
+            return false
+    return true
+
+
+func _walk_to(destination: Vector2, max_frames: int, tolerance: float = 30.0) -> bool:
     for frame_index in max_frames:
         if player.is_dead():
             _release_actions()
+            _fail("Player died while walking to %s" % destination)
             return false
         var delta := destination - player.global_position
-        if delta.length() < 28.0:
+        if delta.length() < tolerance:
             _release_actions()
             await physics_frame
             return true

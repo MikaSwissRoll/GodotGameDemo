@@ -70,6 +70,10 @@ func prepare_title_view() -> void:
     ui.hide()
     ui.process_mode = Node.PROCESS_MODE_DISABLED
     $World.set_title_active(true)
+    # No interaction affordances on the title backdrop: the player cannot move,
+    # so a marker would advertise something they cannot act on yet.
+    guard.set_interaction_active(false)
+    merchant.set_interaction_active(false)
     guard.prompt.hide()
     merchant.prompt.hide()
     get_tree().paused = true
@@ -81,6 +85,10 @@ func begin_from_title() -> void:
     player.controls_enabled = true
     ui.process_mode = Node.PROCESS_MODE_ALWAYS
     ui.show()
+    # Control is handed over and the camera settles on the player, so the markers
+    # may now guide them toward the NPCs.
+    guard.set_interaction_active(true)
+    merchant.set_interaction_active(true)
     _on_start_requested()
 
 

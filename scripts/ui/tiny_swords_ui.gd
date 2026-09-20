@@ -133,6 +133,57 @@ static func add_icon(parent: Control, texture_path: String, at: Vector2, size: V
     return icon
 
 
+## Marker shown above an interactable NPC, cut from the Shikashi atlas.
+##
+## That sheet is a 16-column grid of 32px cells whose rows are NOT full, so a cell
+## is addressed by its measured pixel rect rather than by counting columns: this
+## one is row 0 col 3, the three-dot speech bubble, inner box (4,6,24,22). See
+## docs/ui/UI_ASSET_GUIDE.md for the recording procedure.
+const SHIKASHI_SHEET := "res://asset/Shikashi's Fantasy Icons Pack v2/#1 - Transparent Icons.png"
+const SHIKASHI_BUBBLE := Rect2i(96, 0, 32, 32)
+
+## Local-space y for the marker and the interaction prompt. The pawn sprite is
+## 192px at 0.8 scale, so its head reaches y = -113; the marker sits above that
+## and the prompt below the marker, both clear of the sprite.
+const INTERACT_MARKER_Y := -178.0
+const INTERACT_PROMPT_Y := -126.0
+## A gentle bob so the marker reads as a live invitation rather than a decal.
+const INTERACT_BOB := 4.0
+const INTERACT_BOB_SPEED := 2.6
+
+
+static func add_interact_marker(parent: Node2D, phase: float = 0.0) -> Sprite2D:
+    var marker := Sprite2D.new()
+    var icon := AtlasTexture.new()
+    icon.atlas = load(SHIKASHI_SHEET) as Texture2D
+    icon.region = SHIKASHI_BUBBLE
+    marker.texture = icon
+    marker.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    # 2x: the sheet is authored at 32px, which is small over a 1280x720 viewport.
+    # An integer scale keeps the pixels sharp.
+    marker.scale = Vector2(2.0, 2.0)
+    marker.position = Vector2(0.0, INTERACT_MARKER_Y)
+    marker.z_index = 1
+    marker.set_meta("bob_phase", phase)
+    parent.add_child(marker)
+    return marker
+
+
+static func set_interact_marker_visible(marker: Sprite2D, shown: bool) -> void:
+    marker.visible = shown
+    # Reset to a neutral offset on appear, so it does not pop in mid-bounce.
+    if shown:
+        marker.position.y = INTERACT_MARKER_Y
+
+
+## Advance the marker bob. Call from the owner's _process with a running time.
+static func animate_interact_marker(marker: Sprite2D, time: float) -> void:
+    if not marker.visible:
+        return
+    var phase: float = marker.get_meta("bob_phase", 0.0)
+    marker.position.y = INTERACT_MARKER_Y + sin(time * INTERACT_BOB_SPEED + phase) * INTERACT_BOB
+
+
 static func _button_style(path: String) -> StyleBoxTexture:
     var style := StyleBoxTexture.new()
     style.texture = _nine_patch(path, 128)

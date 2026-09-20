@@ -18,6 +18,7 @@ const VALID_TARGETS := [
     "combat",
     "merchant_shop",
     "dialogue_ui",
+    "npc_marker_far",
     "pause_menu",
     "reward_overlay",
     "shop_overlay",
@@ -40,7 +41,7 @@ func _run() -> void:
     DisplayServer.window_set_size(VIEWPORT_SIZE)
     root.size = VIEWPORT_SIZE
     var scene_path := CLASSIC_SCENE if _target in [
-        "village", "wilderness", "enemy_camp", "dialogue_ui"
+        "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far"
     ] else RUN_SCENE
     if _target in TITLE_TARGETS:
         scene_path = TITLE_SCENE
@@ -210,6 +211,11 @@ func _configure_classic_target(game: Node) -> void:
     var camera := player.get_node("Camera2D") as Camera2D
     camera.position_smoothing_enabled = false
     ui.start_requested.emit()
+    # Staging starts play directly rather than through the title screen, so the
+    # NPC interaction affordances have to be armed the way begin_from_title()
+    # arms them; otherwise they correctly stay hidden and cannot be reviewed.
+    for npc_name in ["VillageGuard", "Merchant"]:
+        game.get_node(npc_name).set_interaction_active(true)
     match _target:
         "village":
             player.global_position = Vector2(1020, 920)
@@ -222,10 +228,15 @@ func _configure_classic_target(game: Node) -> void:
         "enemy_camp":
             player.global_position = Vector2(4000, 800)
         "dialogue_ui":
+            # Inside the guard's radius, so the bubble hands over to "E 交谈".
             player.global_position = Vector2(1320, 920)
             ui.show_toast("守卫：盗匪袭击了村庄！请击败 5 名盗匪，并收集 5 枚金币。", 30.0)
+        "npc_marker_far":
+            # Outside every NPC radius, so the guiding bubbles are on screen and
+            # no key prompt is. Framed near the guard so both are comparable.
+            player.global_position = Vector2(1080, 920)
     camera.reset_smoothing()
-    if _target != "dialogue_ui":
+    if _target not in ["dialogue_ui", "npc_marker_far"]:
         ui.toast_label.visible = false
     await _wait_frames(4)
     paused = true
