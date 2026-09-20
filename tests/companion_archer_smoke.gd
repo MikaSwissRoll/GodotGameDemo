@@ -46,6 +46,7 @@ func _run() -> void:
     await _check_archer_drops_three_gold()
     _check_npcs_have_bodies()
     await _check_player_is_blocked_by_npc()
+    await _check_companion_is_blocked_by_enemy()
 
     print("COMPANION ARCHER PASS: archers targetable, arrows hurt companions, archers pay 3, NPCs block")
     quit(0)
@@ -189,6 +190,35 @@ func _check_npcs_have_bodies() -> void:
     assert(not (companion.collision_layer & 1),
         "The companion's body is on the player body layer, so enemies will push it")
     print("  Guard, Merchant and recruit are solid; player and companion collide with them")
+
+
+## The companion must be stopped by an enemy body, the same way the player is. It
+## sits on its own layer rather than the player's, so both sides have to name each
+## other: the companion masks the enemy body layer, and enemies mask the companion
+## body layer.
+func _check_companion_is_blocked_by_enemy() -> void:
+    var enemy := game.get_node("MeleeEnemy2") as Enemy
+    player.global_position = Vector2(600, 300)
+    enemy.global_position = Vector2(3400, 1200)
+    companion.global_position = enemy.global_position + Vector2(-60, 0)
+    companion.state = Follower.State.FOLLOW
+    companion.velocity = Vector2.ZERO
+    await _wait(4)
+    var before := companion.global_position.distance_to(enemy.global_position)
+    companion.move_and_collide(Vector2(90, 0))
+    await physics_frame
+    var after := companion.global_position.distance_to(enemy.global_position)
+    assert(after > 8.0,
+        "A 90px push from %.0fpx away left the companion %.1fpx from the enemy, so enemies do not block it" % [
+            before, after])
+    # And the enemy side must name the companion, or the enemy walks through it.
+    assert(enemy.collision_mask & PARTY.LAYER_COMPANION_BODY,
+        "The enemy's mask %d does not include the companion body layer %d, so it walks through companions" % [
+            enemy.collision_mask, PARTY.LAYER_COMPANION_BODY])
+    assert(companion.collision_mask & PARTY.LAYER_ENEMY_BODY,
+        "The companion's mask %d does not include the enemy body layer, so it walks through enemies"
+        % companion.collision_mask)
+    print("  enemy bodies block the companion too: %.0fpx -> %.0fpx from the enemy" % [before, after])
 
 
 ## The layers say the player should be blocked, but only a real move proves it.

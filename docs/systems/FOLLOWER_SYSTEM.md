@@ -67,10 +67,12 @@ by construction. `scripts/systems/party.gd` holds the table.
 - NPC bodies are on their own layer **256** rather than the world layer or the
   player's layer, so characters can be blocked by a person without making every
   character mutually collidable.
-- A companion's body is on **512**, deliberately *not* the player's layer 1: on
-  layer 1 enemies would treat it as a solid obstacle and shove it around the map.
-  Its mask is **258** (world + NPC bodies), so it is blocked by scenery and people
-  but never pushes the player.
+- A companion's body is on **512**, deliberately *not* the player's layer 1, so it
+  never pushes the player. Mutual collision is arranged by naming each other
+  explicitly: the companion's mask is **262** (world + NPC bodies + enemy bodies)
+  and the enemy's mask is **772** (player + world + companion bodies). So a
+  companion is blocked by scenery, people and enemies exactly as the player is,
+  without any two party members shoving each other.
 
 The `Enemy` and `ArcherEnemy` classes share **no base class**. Everything that asks
 "is this a valid target" goes through `Party.is_hostile()` / `Party.hostile_health()`,

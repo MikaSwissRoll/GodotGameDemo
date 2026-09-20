@@ -128,9 +128,12 @@ Added as requested:
   were `Area2D`-only, so the player and enemies walked straight through them. Each
   now has a `StaticBody2D` on a new NPC body layer (256), separate from the world
   and player layers so characters are not made mutually collidable. The companion's
-  own body moved to layer 512 so enemies cannot shove it, and its mask is 258
-  (world + NPC bodies).
+  own body sits on layer 512, and mutual collision with enemies is arranged by each
+  side naming the other: companion mask 262, enemy mask 772. A companion is
+  therefore blocked by scenery, people and enemies exactly as the player is, while
+  no two party members ever shove each other.
 
-New suite `tests/companion_archer_smoke.gd` covers all of the above, including a
-proven collision clamp: a 90px push into the Guard is stopped 60px → 30px from his
-centre, which is exactly the two capsule radii.
+New suite `tests/companion_archer_smoke.gd` covers all of the above, including two
+proven collision clamps: a 90px push into the Guard is stopped 60px → 30px from his
+centre, and a 90px push into an enemy is stopped 74px → 38px. Each is exactly the
+sum of the two capsule radii.

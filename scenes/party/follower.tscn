@@ -10,7 +10,7 @@ size = Vector2(58, 52)
 
 [node name="Follower" type="CharacterBody2D"]
 collision_layer = 512
-collision_mask = 258
+collision_mask = 262
 script = ExtResource("1_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
