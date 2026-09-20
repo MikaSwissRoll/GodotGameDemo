@@ -82,6 +82,39 @@ fresh rendered capture, a concrete visual review, and the smallest relevant
 functional test. Keep temporary screenshots out of Git unless they are useful
 long-term references.
 
+## Companion / Follower Systems
+
+For work involving recruitable companions, follower AI, party-member combat,
+formation or follow behavior, follower targeting, follower damage and downed
+states, or companion recruitment, read and apply:
+
+- `docs/FOLLOWER_SYSTEM_WORKFLOW.md` for the change workflow, invariants,
+  failure signatures, and test matrix; and
+- `docs/systems/FOLLOWER_SYSTEM.md` for the current architecture and tuned values.
+
+Before changing follower behavior, inspect the current implementation and
+preserve its documented invariants. Most follower regressions are a violated
+invariant rather than a missing feature.
+
+Route every "is this a valid target" question through
+`scripts/systems/party.gd`. The project has two hostile classes with no shared
+base (`Enemy` and `ArcherEnemy`), so a type test or a direct `.health` read will
+silently exclude one of them.
+
+For substantial follower changes, validate incrementally with the project's
+suites rather than implementing recruitment, following, combat, targeting, and
+recovery before the first runtime check:
+
+```text
+Inspect the foundation and the actual assets
+-> Decide common vs class-specific behavior
+-> Implement one layer
+-> Run the companion suites (companion_smoke, companion_integration_smoke,
+   companion_archer_smoke) plus free_play_spawn_smoke and elevation_smoke
+-> Inspect a rendered capture for formation and combat readability
+-> Continue
+```
+
 ## Autonomous Development Workflow
 
 For all non-trivial development tasks in this project, the agent should work as
