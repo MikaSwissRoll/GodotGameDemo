@@ -124,6 +124,13 @@ static func _region_containing(tile: Vector2i) -> Rect2i:
     return Rect2i(0, 0, 0, 0)
 
 
+## Whether a tile is inside any high region. The boundary builder uses this to leave
+## the seam between two adjacent high regions open, so a terrace built from more than
+## one rect is walkable across the join instead of being split by an internal wall.
+static func is_high_tile(tile: Vector2i) -> bool:
+    return _region_containing(tile).size.x > 0
+
+
 # --- Actor state ------------------------------------------------------------
 
 ## The authoritative level of an actor. Never cached by the caller: two actors
