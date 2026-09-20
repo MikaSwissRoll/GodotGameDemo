@@ -112,7 +112,9 @@ component.
    title, state, primary action, secondary action, and supporting text.
 2. **Choose real assets.** Use [UI Asset Guide](UI_ASSET_GUIDE.md) to select a
    panel, button, bar, and icon that match the role. Confirm the exact path and
-   native geometry.
+   native geometry. For an icon that lives inside an atlas sheet, record its cell
+   with the guide's scanning procedure rather than by counting columns by eye,
+   and render the cell to confirm it before use.
 3. **Build the structure.** Establish anchors, viewport ownership, cumulative
    stack layout, content padding, and the tallest supported state before adding
    decoration.

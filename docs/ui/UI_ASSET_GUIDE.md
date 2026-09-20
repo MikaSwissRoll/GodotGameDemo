@@ -232,33 +232,107 @@ custom cursor. Nothing uses them today.
 | `#2 - Transparent Icons & Drop Shadow.png` | 512x867 | same icons with a drop shadow |
 | `Background 1a/1b/2.png`, `BG 3a/3b/3c/4a/4b/5/6/7/8/9/10/11.png` | 512x867 | icon frames/backgrounds, one sheet each |
 
-**Layout:** a 16-column grid of **32x32** icons, 867px tall (~27 rows). Extract
-with `AtlasTexture` at a 32px region, or a runtime crop like the existing
-`SpriteFramesFactory` strips. There is no per-icon file.
+**Layout — read this before using any cell coordinate.**
 
-**Contents**, per the pack's own manifest
-(`Shikashi's Fantasy Icons Pack.txt`): 11 status effects, 5 body icons, 7 buffs
-and debuffs, 16 special moves, 9 non-combat actions, 28 weapons, 26 clothing and
-armour, 16 healing items, 64 general items, 31 food, 15 fishing items, 11
-resources, 6 orbs, 39 new icons.
+The sheet is **512 × 867**, on a **32 × 32 cell grid: 16 columns × 27 rows**, with
+the last row incomplete. Two traps make naive coordinates wrong:
 
-**Categories most relevant to this project**
+1. **Rows are not full.** The grid is 16 wide, but occupied cells per row vary
+   sharply. Measured by scanning the sheet:
 
-| Need | Where in the sheet |
-| --- | --- |
-| Health potion, stamina potion | Healing items — the four red/blue/green potion rows; also `x4 empty / x4 full flask` variants under New Icons |
-| Gold and currency | General items — `money purse`, `crown coin`, `bronze / silver / gold / large gold coin stack`, `receive money`, `pay money` |
-| Status effects | Row 1 — poison, sleep, silence, curse, dizzy, charm, paralysis, burn |
-| Buffs and debuffs | Rows 2-3 — up/down arrows for gain/loss indicators |
-| Guard, block, attack tells | Special moves — `guard`, `buckler shield`, `saber slash`, `dripping blade` |
-| Quest and interaction | Non-combat actions — `square / round speech bubble`, `campfire`, `blacksmith`, `spellbook` |
-| Resources | `wood`, `stone`, `ore`, `gold`, `gems`, `cloth`, `pelts`, `feathers` |
-| Merchant stock | General items — `knapsack`, `treasure chest`, `brass key`, `letter`, `tied scroll` |
+   | Row | Occupied columns | Count |
+   | --- | --- | --- |
+   | 0 | 0–10 | 11 |
+   | 1 | 0–4 | 5 |
+   | 2 | 0–6 | 7 |
+   | 3 | 0–15 | 16 |
+   | 4 | 0–8 | 9 |
+   | 5 | 0–15 | 16 |
+   | 6 | 0–11 | 12 |
+   | 7 | 0–15 | 16 |
+   | 8 | 0–9 | 10 |
+   | 9–11 | 0–15 | 16 |
+
+   So "the 6th icon in row 0" is **col 5 (sparkles)**, not the speech bubble —
+   row 0 holds only 11 icons, and the speech bubble is **col 3**.
+
+2. **The pack's manifest lists icons by category, not by atlas position.** The
+   order in `Shikashi's Fantasy Icons Pack.txt` (status effects → body → buffs →
+   special moves → …) is *not* the visual order of the atlas. Do not derive a
+   cell coordinate from the manifest's category list.
+
+There is no per-icon file. Extract with `AtlasTexture` at a 32px region.
+
+**Using a cell in Godot**
+
+```gdscript
+var tex := AtlasTexture.new()
+tex.atlas = load("res://asset/Shikashi's Fantasy Icons Pack v2/#1 - Transparent Icons.png")
+tex.region = Rect2i(col * 32, row * 32, 32, 32)
+```
+
+Set `texture_filter = TEXTURE_FILTER_NEAREST` on the node. The sheet's `.import`
+settings already match the Tiny Swords icons (no mipmaps, lossless), so no import
+change is needed. The `#` and space in the filename are fine in a `res://` path.
+
+**How to record a new cell — do not count columns by eye**
+
+Counting by eye is how this project already got a coordinate wrong once: a cell
+was recorded as `px(160,0)` for the speech bubble when `px(160,0)` is sparkles,
+and the error only surfaced because the cell was rendered and looked at. Use this
+procedure:
+
+1. **Scan the sheet**, do not count. Determine which cells are occupied per row
+   (a short Godot script reading the image's alpha is enough). This immediately
+   exposes a short row. `tools/dump_icon_atlas.gd` does this and flags any row
+   that is not full:
+
+   ```powershell
+   $godot --path . --script res://tools/dump_icon_atlas.gd
+   ```
+
+   Set its `DETAIL_ROWS` to the rows you are choosing from to also print each
+   cell's pixel rect and inner opaque box.
+2. **Convert to a pixel rect** as `Rect2i(col * 32, row * 32, 32, 32)`.
+3. **Also record the inner bounding box** — the opaque extent within the cell,
+   which is smaller than 32x32 and is what you want for tight placement (a head
+   marker should use the icon's real bounds, not the cell's padding).
+4. **Render the cell and look at it** before writing the coordinate anywhere.
+   This is the step that catches a wrong coordinate; nothing else does.
+5. Record it in the table below with the pixel rect, not a row/column phrase.
+
+When describing a cell in a message, give the **pixel rect** — `px(96,0,32,32)`.
+Row/column phrases such as "row 5, icon 2" are ambiguous: row and column may be
+counted from 0 or 1, "icon 2" may mean the 2nd occupied cell or column 2, and
+`#1` / `#2` are two different files.
+
+**Confirmed cells**
+
+Measured from `#1 - Transparent Icons.png` and verified by rendering.
+
+| Icon | Cell | Pixel rect | Inner box | Suits |
+| --- | --- | --- | --- | --- |
+| Speech bubble, three dots | row 0, col 3 | `px(96,0,32,32)` | `(4,6,24,22)` | interactable / trade marker |
+| Sparkles | row 0, col 5 | `px(160,0,32,32)` | `(4,3,23,24)` | *not* a bubble — kept as a counter-example |
+| Filled bubble | row 4, col 0 | `px(0,128,32,32)` | `(3,5,26,20)` | content waiting to be read |
+| Double bubble | row 4, col 1 | `px(32,128,32,32)` | `(3,3,26,25)` | plain dialogue |
+| Campfire | row 4, col 2 | `px(64,128,32,32)` | `(5,3,22,26)` | rest point |
+
+**Contents**, per the pack's own manifest: 11 status effects, 5 body icons, 7
+buffs and debuffs, 16 special moves, 9 non-combat actions, 28 weapons, 26
+clothing and armour, 16 healing items, 64 general items, 31 food, 15 fishing
+items, 11 resources, 6 orbs, 39 new icons. Use this only to know *what exists*,
+never to infer a position.
 
 **Not currently used anywhere in the project.** Nothing references this pack.
 
 **Scaling:** authored for 32x32. Display at 32 (1x), 64 (2x), or 96 (3x) with
 `TEXTURE_FILTER_NEAREST`. Avoid arbitrary sizes.
+
+**Style caveat:** the icons are white or lightly coloured line art. Over the
+Tiny Swords bright grass a white bubble has weak contrast; expect to need an
+outline or a translucent backing plate. Judge this in a rendered capture over the
+real terrain, not against a flat swatch.
 
 ---
 
