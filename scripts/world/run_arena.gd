@@ -70,7 +70,11 @@ func _build_terrain() -> void:
         Rect2i(6, 1, 8, 3)
     ]
     var patch: Rect2i = patches[stage]
-    ENV.add_plateau(_stage_root, "LandmarkGround", TERRAIN[patch_index], patch)
+    # Expedition stages are flat. The landmark patch keeps its own terrain colour so
+    # the arena still reads as a place rather than a featureless field, but it is
+    # painted as ordinary ground: no cliff row, no drop shadow, no collision wall,
+    # and no entry in the elevation registry. Classic Mode keeps its plateaus.
+    ENV.add_ground_rect(_stage_root, "LandmarkGround", TERRAIN[patch_index], patch, -18)
     if stage != 0:
         for data in [
             [1, Vector2(40, 114), 0], [2, Vector2(1230, 128), 5],

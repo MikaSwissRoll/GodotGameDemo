@@ -144,6 +144,13 @@ Free-play spawn points must therefore be on the low ground or reachable by a ram
 `FREE_PLAY_SPAWNS` had one point on the camp rise, which would have stranded an
 enemy where it could never reach the player; it moved below the cliff wall.
 
+**Expedition stages are flat.** `RunArena` paints its landmark patch with
+`ENV.add_ground_rect`, so no plateau is registered and `elevation_at()` is `false`
+everywhere. The same stranding bug had already shipped there: stage 2's landmark
+covered tile `(14, 3)`, and `SPAWNS[4]` is `Vector2(950, 220)` — an archer spawned
+on a plateau it would never step off. Elevation remains a Classic Mode feature
+only; it is not a rule the arena should be re-tested against.
+
 ## Follower states
 
 One state machine in `Follower` (`scripts/party/follower.gd`), no per-state scripts:
