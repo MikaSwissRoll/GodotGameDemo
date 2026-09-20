@@ -68,6 +68,12 @@ func _run() -> void:
     await physics_frame
     await physics_frame
     assert(guard.player_nearby, "Guard proximity was not detected")
+    # Classic Mode now opens with the Guard's training quest, and the main quest
+    # only unlocks after both tutorials. This suite covers the main quest's combat
+    # and turn-in, so skip the tutorials rather than replaying them here; their own
+    # contract lives in classic_progression_smoke.
+    var progress := game.get_node("ClassicProgression") as ClassicProgression
+    progress.phase = ClassicProgression.Phase.MAIN_QUEST
     var talk_event := InputEventAction.new()
     talk_event.action = "interact"
     talk_event.pressed = true
@@ -93,10 +99,16 @@ func _run() -> void:
     guard._unhandled_input(talk_event)
     assert(quest.state == QuestManager.QuestState.COMPLETED, "Guard did not complete quest")
     await create_timer(2.0).timeout
-    assert(ui._mode == "complete" and paused, "Demo Complete did not appear")
+    # Classic Mode no longer ends at the main quest: no 试玩完成 modal, no pause, and
+    # the run continues into free play with the player still in the world.
+    assert(ui._mode != "complete", "The old Demo Complete modal appeared")
+    assert(not ui.overlay.visible, "A modal was shown when the main quest completed")
+    assert(not paused, "Completing the main quest paused the game")
+    var progression := game.get_node("ClassicProgression") as ClassicProgression
+    assert(progression.phase == ClassicProgression.Phase.FREE_PLAY,
+        "Classic Mode did not continue into free play")
+    assert(not ui.quest_label.visible, "The quest tracker is still up during free play")
 
-    ui.resume_requested.emit()
-    assert(not paused, "Continue Exploring did not resume gameplay")
     player._invulnerability_left = 0.0
     player.take_damage(999, Vector2.RIGHT)
     assert(ui._mode == "game_over" and paused, "Game Over did not appear")

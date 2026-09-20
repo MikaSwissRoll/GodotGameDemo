@@ -11,8 +11,23 @@ static var restart_into_play := false
 @export var stamina_potion_duration: float = 12.0
 @export var stamina_potion_multiplier: float = 2.0
 
+## Free-play enemy respawn. Outer groups come back only after this long, capped, so
+## the post-main loop is sustainable without accumulating enemies.
+@export var respawn_delay: float = 28.0
+@export var max_free_play_enemies: int = 6
+## Spawn points east of the river, out of the village. Taken from the bandit camp
+## the main quest already sends the player to.
+const FREE_PLAY_SPAWNS := [
+    Vector2(2760, 790), Vector2(2940, 1020), Vector2(3160, 810),
+    Vector2(3590, 850), Vector2(3890, 600), Vector2(4400, 830),
+    Vector2(3300, 1150), Vector2(4100, 1150),
+]
+const MELEE_ENEMY := preload("res://scenes/enemies/melee_enemy.tscn")
+const ARCHER_ENEMY := preload("res://scenes/enemies/archer_enemy.tscn")
+
 @onready var player: Player = $Player
 @onready var quest: QuestManager = $QuestManager
+@onready var progress: ClassicProgression = $ClassicProgression
 @onready var guard: VillageGuard = $VillageGuard
 @onready var merchant: Area2D = $Merchant
 @onready var ui: GameUI = $GameUI
@@ -20,6 +35,10 @@ static var restart_into_play := false
 var gold: int = 0
 var health_potions: int = 0
 var stamina_potions: int = 0
+## Free-play respawn bookkeeping.
+var _free_play_active := false
+var _respawn_left := 0.0
+var _free_play_enemies: Array[Node] = []
 
 
 func _ready() -> void:
@@ -45,6 +64,13 @@ func _ready() -> void:
     merchant.interacted.connect(_on_merchant_interacted)
     quest.quest_changed.connect(_on_quest_changed)
     quest.quest_completed.connect(_on_quest_completed)
+    progress.changed.connect(_on_progress_changed)
+    progress.phase_changed.connect(_on_phase_changed)
+    progress.main_quest_completed.connect(_on_main_quest_completed)
+    # The tutorial counts what the player actually does.
+    player.moved.connect(_on_player_moved)
+    player.attack_started.connect(_on_player_attacked)
+    player.guard_started.connect(_on_player_guarded)
     ui.start_requested.connect(_on_start_requested)
     ui.resume_requested.connect(_on_resume_requested)
     ui.restart_requested.connect(_on_restart_requested)
@@ -58,7 +84,7 @@ func _ready() -> void:
     ui.set_stamina(player.stamina, player.max_stamina)
     ui.set_gold(gold)
     ui.set_inventory(health_potions, stamina_potions)
-    ui.set_quest(quest.get_objective_text())
+    _refresh_quest_ui()
     get_tree().paused = true
     if restart_into_play:
         restart_into_play = false
@@ -146,21 +172,75 @@ func _on_attack_blocked() -> void:
 
 
 func _on_guard_interacted() -> void:
+    match progress.phase:
+        ClassicProgression.Phase.GUARD_TUTORIAL:
+            _guard_training_talk()
+        ClassicProgression.Phase.MERCHANT_TUTORIAL:
+            ui.show_toast("守卫：先去找商人准备些补给吧。", 3.0)
+        ClassicProgression.Phase.MAIN_QUEST:
+            _guard_main_quest_talk()
+        _:
+            ui.show_toast("守卫：干得不错。外围还有敌人活动，想练手就去清理他们。", 4.0)
+
+
+## The Guard briefing, then ongoing reminders, then the hand-in. Split by training
+## step so he never repeats the introduction once the player is under way.
+func _guard_training_talk() -> void:
+    if progress.guard_tutorial_done():
+        _pay_guard_reward()
+        return
+    if not progress.guard_briefed:
+        progress.guard_briefed = true
+        progress.changed.emit()
+        ui.show_toast("守卫：第一次来到边境吧？出发之前，先确认你掌握了基本动作。", 5.0)
+        return
+    match progress.training_step():
+        ClassicProgression.Training.MOVE:
+            ui.show_toast("守卫：先用 WASD 走一走，四个方向都试试。")
+        ClassicProgression.Training.ATTACK:
+            ui.show_toast("守卫：很好。挥一刀给我看看。")
+        _:
+            ui.show_toast("守卫：最后，举盾架住一次。")
+
+
+func _pay_guard_reward() -> void:
+    if progress.guard_reward_paid:
+        ui.show_toast("守卫：去和商人谈谈吧。")
+        return
+    progress.guard_reward_paid = true
+    gold += ClassicProgression.GUARD_REWARD
+    ui.set_gold(gold)
+    ui.show_toast("守卫：不错，基本动作已经掌握了。记住，不要把精力全用在进攻上。", 5.0)
+    ui.show_reward_feedback("获得 %d 金币" % ClassicProgression.GUARD_REWARD)
+    progress.start_merchant_tutorial()
+
+
+func _guard_main_quest_talk() -> void:
     match quest.state:
         QuestManager.QuestState.AVAILABLE:
             quest.accept_quest()
-            ui.show_toast("守卫：盗匪袭击了村庄！请击败 5 名盗匪，并收集 5 枚金币。", 4.5)
+            ui.show_toast("守卫：训练结束了。敌人已经在村外集结，击败 5 名敌兵，把他们抢走的金币带回来。", 5.5)
         QuestManager.QuestState.ACTIVE:
             ui.show_toast("守卫：请阻止桥对面的盗匪。")
         QuestManager.QuestState.READY_TO_TURN_IN:
             quest.turn_in_quest()
-        QuestManager.QuestState.COMPLETED:
-            ui.show_toast("守卫：村庄感谢你！")
+        _:
+            ui.show_toast("守卫：这一带暂时安全了。")
 
 
 func _on_merchant_interacted() -> void:
+    # The supply quest is handed in on arrival, then the shop opens as usual, so the
+    # reward toast is not buried under the shop panel.
+    if progress.phase == ClassicProgression.Phase.MERCHANT_TUTORIAL \
+            and progress.merchant_tutorial_done():
+        _on_merchant_tutorial_turn_in()
+    if progress.phase == ClassicProgression.Phase.MERCHANT_TUTORIAL \
+            and not progress.merchant_briefed:
+        progress.merchant_briefed = true
+        progress.changed.emit()
+        ui.show_toast("商人：准备出发了吗？真正的战斗可不只靠挥剑。", 4.5)
     get_tree().paused = true
-    ui.show_shop(gold, health_potion_price, stamina_potion_price)
+    ui.show_shop(gold, health_potion_price, stamina_potion_price, progress.merchant_dialogue())
 
 
 func _on_shop_closed() -> void:
@@ -177,6 +257,7 @@ func _on_buy_health_requested() -> void:
     ui.set_gold(gold)
     ui.set_inventory(health_potions, stamina_potions)
     ui.set_shop_message("已购入生命药水。按 1 使用。")
+    progress.record_purchase("health")
 
 
 func _on_buy_stamina_requested() -> void:
@@ -188,17 +269,30 @@ func _on_buy_stamina_requested() -> void:
     ui.set_gold(gold)
     ui.set_inventory(health_potions, stamina_potions)
     ui.set_shop_message("已购入精力药水。按 2 使用。")
+    progress.record_purchase("stamina")
 
 
 func _use_health_potion() -> void:
     if health_potions <= 0:
         ui.show_toast("没有生命药水。")
-    elif player.heal(health_potion_heal):
+        return
+    if player.heal(health_potion_heal):
         health_potions -= 1
         ui.set_inventory(health_potions, stamina_potions)
         ui.show_toast("使用生命药水，恢复 %d 点生命。" % health_potion_heal)
-    else:
-        ui.show_toast("生命值已满。")
+        progress.record_potion_used("health")
+        return
+    # At full health the potion has nothing to restore. During the supply tutorial
+    # it is accepted and consumed anyway, so the player can demonstrate the action
+    # without having to go and get hurt first. Outside the tutorial the old refusal
+    # stands and nothing is consumed.
+    if progress.phase == ClassicProgression.Phase.MERCHANT_TUTORIAL:
+        health_potions -= 1
+        ui.set_inventory(health_potions, stamina_potions)
+        ui.show_toast("使用生命药水。生命已满，先留个印象。")
+        progress.record_potion_used("health")
+        return
+    ui.show_toast("生命值已满。")
 
 
 func _use_stamina_potion() -> void:
@@ -209,12 +303,16 @@ func _use_stamina_potion() -> void:
     player.apply_stamina_boost(stamina_potion_duration, stamina_potion_multiplier)
     ui.set_inventory(health_potions, stamina_potions)
     ui.show_toast("精力恢复速度提升 %d 秒。" % ceili(stamina_potion_duration))
+    progress.record_potion_used("stamina")
 
 
+## Only an active main quest counts kills and gold. Free-play respawns and anything
+## the player killed or picked up before the quest started must not advance its
+## counters, or the quest could arrive already finished.
 func _on_enemy_defeated(at: Vector2) -> void:
-    quest.record_bandit_defeated()
+    if quest.state == QuestManager.QuestState.ACTIVE:
+        quest.record_bandit_defeated()
     call_deferred("_spawn_gold", at)
-    ui.show_toast("击败盗匪！记得拾取金币。", 1.8)
 
 
 func _spawn_gold(at: Vector2) -> void:
@@ -226,18 +324,152 @@ func _spawn_gold(at: Vector2) -> void:
 
 func _on_gold_collected(value: int) -> void:
     gold += value
-    quest.record_gold_collected()
+    # Same rule as kills: only an active quest counts what is picked up. Spending
+    # gold at the Merchant deliberately does not undo this, because the counter is
+    # a record of what was collected, not of the current balance.
+    if quest.state == QuestManager.QuestState.ACTIVE:
+        quest.record_gold_collected()
     ui.set_gold(gold)
 
 
 func _on_quest_changed() -> void:
-    ui.set_quest(quest.get_objective_text())
+    _refresh_quest_ui()
     if quest.state == QuestManager.QuestState.READY_TO_TURN_IN:
         ui.show_toast("任务完成！返回村庄向守卫复命。")
 
 
+## The main quest no longer ends the session. Classic Mode keeps going into free
+## play: the reward is paid, the story state moves on, and the player stays in the
+## world. The old 试玩完成 modal and its pause are gone.
 func _on_quest_completed() -> void:
-    ui.show_toast("任务完成！感谢你，勇士。村庄安全了。", 1.8)
-    get_tree().paused = true
-    await get_tree().create_timer(1.8).timeout
-    ui.show_complete()
+    ui.show_toast("任务完成！感谢你，勇士。村庄安全了。", 3.0)
+    progress.start_free_play()
+
+
+func _on_progress_changed() -> void:
+    _refresh_quest_ui()
+    if progress.phase == ClassicProgression.Phase.MERCHANT_TUTORIAL \
+            and progress.merchant_tutorial_done():
+        ui.show_toast("补给训练完成，返回商人处。", 4.0)
+
+
+func _on_phase_changed(phase: int) -> void:
+    match phase:
+        ClassicProgression.Phase.MAIN_QUEST:
+            ui.show_toast("守卫：训练结束了，现在该处理真正的问题了。", 4.5)
+        ClassicProgression.Phase.FREE_PLAY:
+            ui.show_toast("边境暂时安全了。外围仍有敌人出没，随时可以去清理。", 5.0)
+
+
+## One place that builds the objective line, so the phase and the main quest's own
+## counters are combined consistently wherever the quest UI is refreshed.
+func _refresh_quest_ui() -> void:
+    ui.set_quest_visible(progress.tracker_visible())
+    if progress.tracker_visible():
+        ui.set_quest(progress.objective_text(quest.get_objective_text()))
+
+
+func _on_player_moved(direction: int) -> void:
+    progress.record_direction(direction)
+
+
+func _on_player_attacked() -> void:
+    progress.record_attack()
+
+
+func _on_player_guarded() -> void:
+    progress.record_guard()
+
+
+## The main quest is finished and free play begins. The story enemies are gone and
+## the outer camp becomes a sustainable loop: clear it, earn gold, buy supplies,
+## come back. Nothing here counts toward the finished quest.
+##
+## The first group appears at once: the quest's own enemies are already dead by
+## now, so waiting out a respawn delay would leave the camp empty for half a minute
+## right when the player walks over to look at it.
+func _on_main_quest_completed() -> void:
+    _free_play_active = true
+    _respawn_free_play_group()
+    _respawn_left = respawn_delay
+
+
+func _process(delta: float) -> void:
+    if not _free_play_active or get_tree().paused:
+        return
+    _refresh_free_play_enemies()
+    if not _free_play_enemies.is_empty():
+        # Something is still standing, so the wait has not started.
+        _respawn_left = respawn_delay
+        return
+    _respawn_left = maxf(0.0, _respawn_left - delta)
+    if _respawn_left > 0.0:
+        return
+    _respawn_free_play_group()
+    _respawn_left = respawn_delay
+
+
+## Drop dead and freed references so the count reflects what is actually alive.
+func _refresh_free_play_enemies() -> void:
+    var alive: Array[Node] = []
+    for enemy in _free_play_enemies:
+        if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+            alive.append(enemy)
+    _free_play_enemies = alive
+
+
+## Spawn a small group at outer points, never exceeding the cap and never on top of
+## the player. The delay lives in `_process`, so this cannot run every frame and the
+## population cannot run away.
+func _respawn_free_play_group() -> void:
+    var room := max_free_play_enemies - _free_play_enemies.size()
+    if room <= 0:
+        return
+    var group_size := mini(room, 4)
+    var candidates := _free_play_spawn_points()
+    if candidates.is_empty():
+        return
+    for index in group_size:
+        var point: Vector2 = candidates[index % candidates.size()]
+        # Reuse the existing enemy scenes; a third of the group is archers so ranged
+        # pressure stays in the mix without introducing a new type.
+        var scene := ARCHER_ENEMY if index % 3 == 2 else MELEE_ENEMY
+        var enemy := scene.instantiate() as Node2D
+        add_child(enemy)
+        enemy.global_position = point
+        if enemy.has_signal("defeated"):
+            enemy.defeated.connect(_on_enemy_defeated)
+        _free_play_enemies.append(enemy)
+
+
+## Outer spawn points clear of the player, so nothing materialises in front of them.
+## The camp is east of the river, well away from the village.
+func _free_play_spawn_points() -> Array[Vector2]:
+    var usable: Array[Vector2] = []
+    for point in FREE_PLAY_SPAWNS:
+        if player != null and is_instance_valid(player) \
+                and player.global_position.distance_to(point) < 320.0:
+            continue
+        usable.append(point)
+    return usable
+
+
+## Exposed for the free-play regression, which checks the cap and the placement
+## rules without waiting out a real respawn delay.
+func free_play_enemy_count() -> int:
+    return _free_play_enemies.size()
+
+
+func is_free_play_active() -> bool:
+    return _free_play_active
+
+
+## The Merchant pays once, when both potions have been bought and used.
+func _on_merchant_tutorial_turn_in() -> void:
+    if progress.merchant_reward_paid:
+        return
+    progress.merchant_reward_paid = true
+    gold += ClassicProgression.MERCHANT_REWARD
+    ui.set_gold(gold)
+    ui.show_reward_feedback("获得 %d 金币" % ClassicProgression.MERCHANT_REWARD)
+    progress.start_main_quest()

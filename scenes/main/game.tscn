@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/main/game.gd" id="1_game"]
 [ext_resource type="PackedScene" path="res://scenes/world/world.tscn" id="2_world"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/game_ui.tscn" id="8_ui"]
 
 [ext_resource type="PackedScene" path="res://scenes/world/merchant.tscn" id="9_merchant"]
+[ext_resource type="Script" path="res://scripts/systems/classic_progression.gd" id="10_progress"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_game")
@@ -48,6 +49,9 @@ position = Vector2(4510, 1020)
 
 [node name="QuestManager" type="Node" parent="."]
 script = ExtResource("7_quest")
+
+[node name="ClassicProgression" type="Node" parent="."]
+script = ExtResource("10_progress")
 
 [node name="GameUI" parent="." instance=ExtResource("8_ui")]
 

@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 
 const VIEWPORT_SIZE := Vector2i(1280, 720)
 const TITLE_SCENE := "res://scenes/main/town_title.tscn"
@@ -23,6 +23,9 @@ const VALID_TARGETS := [
     "merchant_shop",
     "dialogue_ui",
     "npc_marker_far",
+    "guard_tutorial",
+    "supply_tutorial",
+    "free_play",
     "pause_menu",
     "reward_overlay",
     "shop_overlay",
@@ -118,7 +121,8 @@ func _parse_arguments() -> bool:
 ## States staged on the classic scene. Everything else runs on the roguelite
 ## scene, so a new roguelite target does not have to be registered in two places.
 const CLASSIC_TARGETS := [
-    "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far"
+    "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far",
+    "guard_tutorial", "supply_tutorial", "free_play"
 ]
 
 
@@ -274,6 +278,29 @@ func _configure_classic_target(game: Node) -> void:
             # pre-quest prompt that cannot reveal quest/gold collisions.
             var quest := game.get_node("QuestManager") as QuestManager
             quest.accept_quest()
+        "guard_tutorial":
+            # The Guard training quest mid-progress: the longest objective line the
+            # tutorial produces, so quest-label collisions show up here.
+            player.global_position = Vector2(1120, 920)
+            var progress := game.get_node("ClassicProgression") as ClassicProgression
+            progress.guard_briefed = true
+            progress.record_direction(ClassicProgression.MoveDir.UP)
+            progress.record_direction(ClassicProgression.MoveDir.LEFT)
+            progress.record_direction(ClassicProgression.MoveDir.RIGHT)
+            progress.record_attack()
+        "supply_tutorial":
+            # The Merchant supply quest mid-progress.
+            player.global_position = Vector2(1000, 900)
+            var supply := game.get_node("ClassicProgression") as ClassicProgression
+            supply.start_merchant_tutorial()
+            supply.merchant_briefed = true
+            supply.record_purchase("health")
+            supply.record_potion_used("stamina")
+        "free_play":
+            # Post-main-quest: the tracker must be gone and the outer camp restocked.
+            player.global_position = Vector2(2650, 850)
+            var done := game.get_node("ClassicProgression") as ClassicProgression
+            done.start_free_play()
         "wilderness":
             player.global_position = Vector2(2050, 800)
         "enemy_camp":

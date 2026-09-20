@@ -21,6 +21,20 @@ signal guard_broken_exhausted
 signal attack_blocked
 signal died
 
+## Cardinal directions the player has held movement in, as a bitmask of MoveDir.
+## The classic tutorial teaches 上下左右, so it needs a reliable record of real
+## movement rather than a guess from the final position. Reported per direction
+## once, because `_physics_process` runs every frame.
+signal moved(direction: int)
+## Emitted when a swing actually begins, for the same reason: the tutorial counts
+## an executed attack, not a button press that a cooldown or empty stamina refused.
+signal attack_started
+## Emitted when the shield comes up. Separate from `attack_blocked`, which needs a
+## blow to actually land, because the tutorial asks only for raising it.
+signal guard_started
+
+enum MoveDir { UP = 1, DOWN = 2, LEFT = 4, RIGHT = 8 }
+
 @export var move_speed: float = 220.0
 @export var movement_bounds := Rect2(24.0, 24.0, 4752.0, 1452.0)
 @export var max_health: int = 100
@@ -136,6 +150,10 @@ var _camera_base_offset := Vector2.ZERO
 ## Held for the duration of one impact shake, so the camera does not re-roll every
 ## frame while shaking.
 var _shake_offset := Vector2.ZERO
+## Directions held this session, as a MoveDir bitmask, and the previous frame's
+## guard state so `guard_started` fires on the rising edge only.
+var _moved_mask := 0
+var _was_guarding := false
 
 
 func _ready() -> void:
@@ -195,6 +213,9 @@ func _physics_process(delta: float) -> void:
     if _dead or not controls_enabled:
         velocity = Vector2.ZERO
         guarding = false
+        # Keep the edge flag in step with the state, or a guard that was up when
+        # the player died would swallow the next `guard_started`.
+        _was_guarding = false
         dash_hitbox.monitoring = false
         return
 
@@ -206,6 +227,10 @@ func _physics_process(delta: float) -> void:
     # when a hit actually lands, which is what makes the last block work.
     guarding = (Input.is_action_pressed("guard") and not _guard_broken
         and not _attacking and _dash_left <= 0.0 and not exhausted and stamina > 0.0)
+    if guarding and not _was_guarding:
+        guard_started.emit()
+    _was_guarding = guarding
+    _report_movement(direction)
 
     # Keep the shield aimed where it was raised while allowing strafing.
     if direction != Vector2.ZERO and _dash_left <= 0.0 and not guarding:
@@ -304,6 +329,34 @@ func get_dash_cost() -> float:
 ## actions are locked for the duration.
 func is_exhausted() -> bool:
     return _exhausted_left > 0.0
+
+
+## Report each cardinal direction once, for the tutorial. Held diagonals report
+## both of their components, and a direction is never re-reported, so a quest that
+## counts four directions cannot be farmed by wiggling.
+func _report_movement(direction: Vector2) -> void:
+    if direction == Vector2.ZERO:
+        return
+    if direction.y < -0.1:
+        _report_direction(MoveDir.UP)
+    if direction.y > 0.1:
+        _report_direction(MoveDir.DOWN)
+    if direction.x < -0.1:
+        _report_direction(MoveDir.LEFT)
+    if direction.x > 0.1:
+        _report_direction(MoveDir.RIGHT)
+
+
+func _report_direction(flag: int) -> void:
+    if _moved_mask & flag:
+        return
+    _moved_mask |= flag
+    moved.emit(flag)
+
+
+## Which cardinal directions have been held this session. Bitmask of MoveDir.
+func moved_mask() -> int:
+    return _moved_mask
 
 
 func exhausted_left() -> float:
@@ -518,6 +571,9 @@ func _start_attack() -> void:
     _attack_cooldown_left = attack_cooldown
     _attack_hits.clear()
     sprite.play("attack")
+    # Announced here rather than where the input is read, so the tutorial counts a
+    # swing that actually happened and not a press that stamina or a cooldown refused.
+    attack_started.emit()
     await get_tree().create_timer(0.09, false).timeout
     if _dead or not is_inside_tree():
         return

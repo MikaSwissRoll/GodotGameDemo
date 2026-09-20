@@ -1,4 +1,4 @@
-﻿extends CanvasLayer
+extends CanvasLayer
 class_name GameUI
 
 const UI := preload("res://scripts/ui/tiny_swords_ui.gd")
@@ -44,6 +44,12 @@ var primary_button: ActionRow
 var secondary_button: ActionRow
 var tertiary_button: ActionRow
 var _mode := ""
+
+
+## Which overlay is up, or "" when the HUD is showing. Exposed read-only so a
+## harness can assert that a particular modal did or did not appear.
+func current_mode() -> String:
+    return _mode
 var _toast_time := 0.0
 var _shop_gold := 0
 var _health_price := 0
@@ -129,6 +135,19 @@ func set_quest(text: String) -> void:
     _layout_quest_group()
 
 
+## Hide the whole tracker, shield included. Free play has no objective, and leaving
+## a finished quest pinned at 5/5 would read as unfinished business.
+func set_quest_visible(shown: bool) -> void:
+    quest_label.visible = shown
+    quest_icon.visible = shown
+
+
+## Reward feedback for a completed quest step, shown over the character so it reads
+## as the player receiving it rather than as a status line.
+func show_reward_feedback(text: String) -> void:
+    show_toast(text, 2.4)
+
+
 func _layout_quest_group() -> void:
     # Pin the group before the gold icon, but keep the shield beside the text.
     # The label expands left as objectives grow instead of entering the gold HUD.
@@ -169,12 +188,16 @@ func show_complete() -> void:
     _show_overlay("试玩完成", "盗匪已被击败，村庄恢复了平静。", "继续探索", "返回主菜单", "complete")
 
 
-func show_shop(gold: int, health_price: int, stamina_price: int) -> void:
+## `line` lets the Merchant speak according to progression. Empty falls back to the
+## plain shop wording, so existing callers keep working.
+func show_shop(gold: int, health_price: int, stamina_price: int, line: String = "") -> void:
     _shop_gold = gold
     _health_price = health_price
     _stamina_price = stamina_price
-    _show_overlay("村庄商人", "购买药水，按 1 或 2 使用。\n当前金币：%d" % gold,
-        "", "", "shop", "离开商店")
+    var body := "购买药水，按 1 或 2 使用。\n当前金币：%d" % gold
+    if not line.is_empty():
+        body = "%s\n当前金币：%d" % [line, gold]
+    _show_overlay("村庄商人", body, "", "", "shop", "离开商店")
     _refresh_shop_buttons()
 
 

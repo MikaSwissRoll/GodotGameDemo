@@ -51,6 +51,12 @@ func _run() -> void:
     player = game.get_node("Player") as Player
     quest = game.get_node("QuestManager") as QuestManager
     guard = game.get_node("VillageGuard") as VillageGuard
+    # Classic Mode now opens with the Guard's training quest, and the main quest
+    # only unlocks once both tutorials are done. This suite covers the main quest's
+    # route and combat, so skip the tutorials; their contract lives in
+    # classic_progression_smoke.
+    (game.get_node("ClassicProgression") as ClassicProgression).phase = \
+        ClassicProgression.Phase.MAIN_QUEST
     (game.get_node("GameUI") as GameUI).start_requested.emit()
 
     if not await _walk_to(guard.global_position + Vector2(-38, 0), 250):
