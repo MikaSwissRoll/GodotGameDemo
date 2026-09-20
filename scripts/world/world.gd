@@ -1,7 +1,16 @@
 extends Node2D
 
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
+const HIGH_GROUND := preload("res://scripts/world/high_ground.gd")
 const TOWN := preload("res://scripts/world/starting_town.gd")
+
+## The one region migrated to the elevation model so far. Rows 2-7 of the village
+## continent, with its drawn stone face in rows 8-9.
+const CASTLE_TERRACE := Rect2i(15, 2, 9, 6)
+## A composed two-step stair in that face, placed where the player walks in from the
+## village. The tileset has no ramp art, so it is built from the lip row.
+const CASTLE_RAMP_UPPER := Rect2i(16, 8, 2, 1)
+const CASTLE_RAMP_LOWER := Rect2i(15, 9, 4, 1)
 const MAP_CELLS := Vector2i(75, 24)
 const MAP_SIZE := Vector2(4800.0, 1536.0)
 const RIVER_LEFT := 2304.0
@@ -56,16 +65,28 @@ func _build_terrain() -> void:
         Rect2i(0, 0, 36, MAP_CELLS.y), -20, Vector4i(0, 0, 1, 0))
     ENV.add_ground_rect(_art, "EnemyContinent", GRASS_3,
         Rect2i(40, 0, 35, MAP_CELLS.y), -20, Vector4i(1, 0, 0, 0))
-    ENV.add_plateau(_art, "CastleTerrace", GRASS_2, Rect2i(15, 2, 9, 6), false)
-    # Side ramps are source terrain tiles; the central cliff remains solid.
-    var cliff := ENV.add_wall(self, Vector2(1248, 530), Vector2(448, 40))
-    cliff.add_to_group(ENV.PLATEAU_CLIFF_GROUP)
+    # CastleTerrace, migrated to the elevation model.
+    #
+    # It used to be built cliff-first: the surface was registered with collision
+    # disabled, a single hand-placed wall covered only part of the bottom edge, and
+    # the two side "ramps" were shoreline corner tiles - land meeting water - placed
+    # in the face rows with no collision at all. They read as an entrance only
+    # because no wall happened to be built in those columns, which made them
+    # indistinguishable from any other open edge, and the player was shown a beach
+    # where the way up should be.
+    #
+    # Now the surface, the two-row stone face, the boundary on every edge that faces
+    # low ground, and the stair all come from one builder, so the drawn drop and the
+    # blocking edge cannot drift apart.
+    HIGH_GROUND.declare(CASTLE_TERRACE, [CASTLE_RAMP_UPPER, CASTLE_RAMP_LOWER])
+    HIGH_GROUND.construct(_art, "CastleTerrace", GRASS_2, CASTLE_TERRACE,
+        [CASTLE_RAMP_UPPER, CASTLE_RAMP_LOWER])
     # Continuous lowland lets roads and grouped scenery describe the village.
-    var ramps := ENV._new_tile_layer(_art, "CastleRamps", GRASS_2, -16)
-    ramps.set_cell(Vector2i(15, 8), 0, Vector2i(0, 4))
-    ramps.set_cell(Vector2i(15, 9), 0, Vector2i(0, 5))
-    ramps.set_cell(Vector2i(23, 8), 0, Vector2i(3, 4))
-    ramps.set_cell(Vector2i(23, 9), 0, Vector2i(3, 5))
+    #
+    # CampRise is NOT migrated yet: it still uses the old builder through the
+    # temporary bridge in `add_plateau`, which registers it with `Elevation` so it
+    # stays a real level for actors. It has no ramp, so it is unreachable by design
+    # until it gets one - see docs/environment/ELEVATION_AUDIT.md section 11.
     ENV.add_plateau(_art, "CampRise", GRASS_4, Rect2i(53, 1, 19, 9))
     ENV.add_ground_rect(_art, "CampRoad", GRASS_4, Rect2i(40, 10, 31, 4), -18)
 

@@ -51,8 +51,13 @@ static var _plateaus: Array[Rect2i] = []
 ## Start a fresh elevation registry. Each world and each arena stage calls this
 ## before building, so a reloaded scene or a new stage never inherits plateaus
 ## from the previous one.
+##
+## It clears the `Elevation` field as well as the local list. Actors read elevation
+## from `Elevation`, so a region registered in only one of the two would be a level
+## for some code and flat ground for the rest.
 static func begin_world() -> void:
     _plateaus.clear()
+    Elevation.begin_field()
 
 
 ## The plateau a point stands on, or an empty rect when it is on the low ground.
@@ -87,6 +92,14 @@ static func add_plateau(
 ) -> TileMapLayer:
     if not _plateaus.has(rect):
         _plateaus.append(rect)
+    # TEMPORARY BRIDGE. This is the old cliff-first builder, kept alive only for the
+    # regions that have not been migrated to `HighGround` yet. Actors read
+    # `Elevation`, so a region registered here but not there would be high ground for
+    # `elevation_at` and flat for everyone who actually moves.
+    #
+    # Migrating a region means deleting its `add_plateau` call, not editing this one.
+    # When the last caller is gone, this function and `elevation_at` go with it.
+    Elevation.register_high_region(rect)
     var surface := _new_tile_layer(parent, layer_name, texture, -18)
     for local_y in range(rect.size.y):
         for local_x in range(rect.size.x):

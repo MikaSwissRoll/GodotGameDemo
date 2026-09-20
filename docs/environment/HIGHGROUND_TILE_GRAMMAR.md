@@ -123,7 +123,7 @@ Build in this order. Every one of the failures in §7 came from starting at step
 7.  Gameplay collision      movement blockers along cliffs, opening at the ramp
 8.  Navigation              LOW and HIGH connected only through the ramp
 9.  Decoration              only after 1-8 are correct
-10. Runtime screenshot QA   judged against §8
+10. Runtime screenshot QA   judged against §10
 ```
 
 **TOP SURFACE FIRST. CLIFFS SECOND.**
@@ -172,7 +172,42 @@ All seven observed in the current project.
 | Platform with no functional relationship to gameplay | Drawn for looks; nothing can reach it, nothing uses it |
 | Ramp that does not read as a ramp | A **shoreline corner** used as an access route (§4) |
 
-## 8. Visual QA checklist
+## 9. Edges the tileset cannot draw
+
+The stone face is a **horizontal** course. There is no vertical cliff art anywhere
+in the pack, so a high region can only show a drop along its **south** edge.
+
+Every other edge still has to be blocked — a cliff is a boundary on all sides
+(invariant 5) — but nothing can be drawn under that collision. The result is an
+invisible wall, which is exactly the failure the last line of §8 forbids: it looks
+walkable and is not.
+
+`HighGround` pushes a warning when it builds such an edge. Treat it as a defect,
+not noise:
+
+```text
+HighGround 'CastleTerrace': 14 boundary wall(s) on the north/east/west edges have no
+drawn cliff face ... Those edges will read as walkable while being blocked.
+```
+
+Three honest ways to resolve it, in order of preference:
+
+1. **Bound the edge with something visible from the scene** — a building wall, a
+   river, a fence, a tree line, or the map's own edge. The player can then see why
+   they cannot pass, and the collision has a cause.
+2. **Make the region flush with a real boundary.** A terrace that runs to the map
+   edge has no north edge to explain. This is what ElevationLab does.
+3. **Move the footprint** so the exposed edges face something already impassable.
+
+What is **not** acceptable is shipping the invisible wall and calling it done, or
+papering over it by removing the collision. Removing it makes the plateau reachable
+from every side, which is the defect this whole system exists to remove.
+
+Do not improvise a vertical face from rotated stone tiles unless you also verify it
+in a capture: a rotated horizontal course reads as a mistake far more often than as
+a cliff.
+
+## 10. Visual QA checklist
 
 Run the scene, capture the full viewport, and judge the rendered pixels. There is no
 automated assertion for this.

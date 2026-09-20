@@ -70,7 +70,7 @@ static func construct(
     var surface := _paint_surface(parent, region_name, texture, region)
     _paint_cliff_faces(parent, region_name, texture, region)
     _paint_ramp_treads(parent, region_name, texture, ramps)
-    _build_boundary(parent, region, ramps)
+    _build_boundary(parent, region_name, region, ramps)
     return surface
 
 
@@ -187,7 +187,7 @@ static func _paint_ramp_treads(
 ##
 ## Every wall occupies the LOW-side tile adjacent to the footprint and never the
 ## footprint itself, so a character stopped by it still samples a LOW tile.
-static func _build_boundary(parent: Node, region: Rect2i, ramps: Array[Rect2i]) -> void:
+static func _build_boundary(parent: Node, region_name: String, region: Rect2i, ramps: Array[Rect2i]) -> void:
     var tile := Elevation.TILE
     var first_col := region.position.x
     var last_col := region.position.x + region.size.x
@@ -199,13 +199,26 @@ static func _build_boundary(parent: Node, region: Rect2i, ramps: Array[Rect2i]) 
         var row := last_row + face_row
         _wall_span_x(parent, first_col, last_col, float(row) * tile + tile * 0.5, tile, row)
 
-    # North: the LOW-side tile is the row above the footprint.
+    # North, east and west. The tileset has no vertical cliff face, so these walls
+    # have nothing drawn under them. Warn loudly: real collision with no visible drop
+    # is the "looks walkable but is blocked" failure, and it is far cheaper to catch
+    # here than in a screenshot.
     var north_row := first_row - 1
-    _wall_span_x(parent, first_col, last_col, float(first_row) * tile - tile * 0.5, tile, north_row)
-
-    # East and west: the LOW-side tile is the column beside the footprint.
-    _wall_span_y(parent, first_row, last_row, float(first_col) * tile - tile * 0.5, tile, first_col - 1)
-    _wall_span_y(parent, first_row, last_row, float(last_col) * tile + tile * 0.5, tile, last_col)
+    var hidden := _wall_span_x(parent, first_col, last_col,
+        float(first_row) * tile - tile * 0.5, tile, north_row)
+    hidden += _wall_span_y(parent, first_row, last_row,
+        float(first_col) * tile - tile * 0.5, tile, first_col - 1)
+    hidden += _wall_span_y(parent, first_row, last_row,
+        float(last_col) * tile + tile * 0.5, tile, last_col)
+    if hidden > 0:
+        push_warning(
+            "HighGround '%s': %d boundary wall(s) on the north/east/west edges have " %
+            [region_name, hidden] +
+            "no drawn cliff face, because the tileset has no vertical drop art. Those " +
+            "edges will read as walkable while being blocked. Bound them with something " +
+            "visible from the scene - buildings, water, a fence, or the map edge - or " +
+            "move the region so it is flush with one. See " +
+            "docs/environment/HIGHGROUND_TILE_GRAMMAR.md section 9.")
 
 
 ## A LOW-side tile is solid unless a ramp opens it or it is itself high ground.
@@ -215,6 +228,7 @@ static func _edge_is_solid(tile: Vector2i) -> bool:
     return not Elevation.is_high_tile(tile)
 
 
+## Returns the number of walls emitted.
 static func _wall_span_x(
     parent: Node,
     first_col: int,
@@ -222,14 +236,15 @@ static func _wall_span_x(
     centre_y: float,
     height: float,
     band_row: int
-) -> void:
+) -> int:
     var solid: Array[int] = []
     for col in range(first_col, last_col):
         if _edge_is_solid(Vector2i(col, band_row)):
             solid.append(col)
-    _emit_runs(parent, solid, centre_y, height, true)
+    return _emit_runs(parent, solid, centre_y, height, true)
 
 
+## Returns the number of walls emitted.
 static func _wall_span_y(
     parent: Node,
     first_row: int,
@@ -237,27 +252,30 @@ static func _wall_span_y(
     centre_x: float,
     width: float,
     band_col: int
-) -> void:
+) -> int:
     var solid: Array[int] = []
     for row in range(first_row, last_row):
         if _edge_is_solid(Vector2i(band_col, row)):
             solid.append(row)
-    _emit_runs(parent, solid, centre_x, width, false)
+    return _emit_runs(parent, solid, centre_x, width, false)
 
 
-## Emit one wall per consecutive run of solid indices. The trailing run is flushed
-## explicitly: a wall whose last index is solid has no following open index to
-## trigger the flush, and dropping it left one side of every ramp open.
+## Emit one wall per consecutive run of solid indices, and report how many.
+##
+## The trailing run is flushed explicitly: a wall whose last index is solid has no
+## following open index to trigger the flush, and dropping it left one side of every
+## ramp open.
 static func _emit_runs(
     parent: Node,
     indices: Array[int],
     centre_cross: float,
     size_cross: float,
     horizontal: bool
-) -> void:
+) -> int:
     if indices.is_empty():
-        return
+        return 0
     var tile := Elevation.TILE
+    var emitted := 0
     var run_start := indices[0]
     var previous := indices[0]
     for position in range(1, indices.size() + 1):
@@ -271,5 +289,7 @@ static func _emit_runs(
             ENV.add_wall(parent, Vector2(centre, centre_cross), Vector2(span, size_cross))
         else:
             ENV.add_wall(parent, Vector2(centre_cross, centre), Vector2(size_cross, span))
+        emitted += 1
         run_start = current
         previous = current
+    return emitted

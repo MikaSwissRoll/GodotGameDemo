@@ -32,27 +32,65 @@ focused on the current vertical slice.
   gameplay changes. If a required MCP capability is unavailable, fall back to
   the local Godot CLI or other appropriate project tools.
 
-## Tests — the suite is FROZEN
+## Current Validation
 
-**The automated test suite is frozen. Do not run it, do not add to it, and do not
-wait on it.** `tests/` was emptied deliberately and no longer exists as a
-harness: there is no runner, no suite, and nothing to invoke. Any command of the
-form `.\tests\run_tests.ps1 ...` will simply fail.
+**The legacy test/smoke infrastructure is frozen.** `tests/` is gone and must not
+be used for current development: not run, not repaired, not updated, not restored
+from Git history, and never an acceptance criterion. Production code is never
+changed merely to satisfy it. Its assumptions are not carried forward.
 
-Do not restore the old suites from Git history on your own initiative. If testing
-is ever wanted again, that is a decision for the user, not a step in a task.
+Use the current V2 workflow instead:
 
-Verify changes the way the rest of this file describes instead:
+```powershell
+.\tests_v2\run.ps1                       # print the map; runs nothing
+.\tests_v2\run.ps1 -Category baseline    # core systems still work
+.\tests_v2\run.ps1 -Suite <name>         # one suite
+.\tests_v2\run.ps1 -All                  # everything
+```
 
-- read the code you changed and the code that calls it;
-- run the project and watch the parser, runtime, and resource output;
-- for visual, UI, environment and scene work, take a rendered capture and inspect
-  the actual pixels (`tools/capture_visual_qa.ps1`, `docs/visual_qa.md`);
-- drive the affected flow by hand in a running build and say what you saw.
+`tests_v2/README.md` is the map. The one rule to know before writing a suite:
 
-Never claim a change is verified because tests pass — there are no tests.
-`docs/TEST_WORKFLOW.md` keeps what the suite taught us; read it before writing
-any new test.
+> **V2 never uses `assert()`.** A failed assert returns from the enclosing function
+> only, so an assert inside a helper left the old suite exiting `0` and printing
+> PASS. `check()` counts, `finish()` decides the exit code, and a suite that
+> recorded zero checks is itself a failure.
+
+Not everything belongs in an automated check. Spatial behaviour and terrain
+composition are verified by driving the lab and looking at a rendered capture; see
+`docs/TEST_WORKFLOW.md` for the frozen suite's hard-won lessons.
+
+## Elevation / High Ground
+
+For work involving high ground, cliffs, ramps, elevation-aware combat,
+cross-elevation navigation, ranged targeting across elevation, or follower
+elevation behaviour, read:
+
+- `docs/environment/ELEVATION_SYSTEM.md` — the authoritative contract. **If code
+  disagrees with it, the code is wrong.** Two levels only; ramps are the only legal
+  crossing; melee requires the same level; ranged crosses freely and never requires
+  reachability; `CanReachTarget` and `CanAttackTarget` are different questions.
+- `docs/environment/HIGHGROUND_TILE_GRAMMAR.md` — how to compose the terrain from
+  the real Tiny Swords assets. Top surface first, cliffs second. There is no ramp
+  tile in the pack; a ramp is composed.
+- `docs/environment/ELEVATION_AUDIT.md` — what the old architecture was, so the
+  same defects are not reintroduced.
+- `docs/FOLLOWER_SYSTEM_WORKFLOW.md` when follower behaviour is involved.
+
+Route every elevation question through `scripts/systems/elevation.gd`. Do not
+re-implement a level test inside an actor: it was written four times before and two
+of those copies were missing entirely.
+
+Build high ground with `scripts/world/high_ground.gd`, never by hand-placing cliff
+collision. Declare every region in a scene before constructing any of them, or the
+seam between two regions gets walled.
+
+Major elevation changes require all three:
+
+1. `.\tests_v2\run.ps1 -Category elevation,scenarios` passes;
+2. the ElevationLab runtime scenarios are exercised;
+3. a screenshot is taken and judged against the tile grammar.
+
+An automated suite passing is not evidence that terrain looks right.
 
 ## UI Development
 
