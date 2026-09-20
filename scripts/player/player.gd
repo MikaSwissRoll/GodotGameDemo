@@ -4,6 +4,7 @@ extends CharacterBody2D
 const SPRITES := preload("res://scripts/systems/sprite_frames_factory.gd")
 const FEEDBACK := preload("res://scripts/systems/combat_feedback.gd")
 const UI := preload("res://scripts/ui/tiny_swords_ui.gd")
+const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const BLUE_WARRIOR := "res://asset/Units/Blue Units/Warrior/"
 
 signal health_changed(current: int, maximum: int)
@@ -128,6 +129,13 @@ var _char_shake_amplitude := 0.0
 var _char_shake_offset := Vector2.ZERO
 var _state_icon: Sprite2D
 var _state_icon_left := 0.0
+## The camera's authored offset from the player, captured before the first frame
+## overwrites `offset` for alignment. The scene places it at (0, -50) to frame the
+## character above centre.
+var _camera_base_offset := Vector2.ZERO
+## Held for the duration of one impact shake, so the camera does not re-roll every
+## frame while shaking.
+var _shake_offset := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -150,6 +158,9 @@ func _ready() -> void:
     # and needs no per-frame positioning.
     _state_icon = UI.make_state_icon(self, UI.SHIKASHI_SWEAT, state_icon_scale)
     _state_icon.position = state_icon_offset
+    # Capture the authored camera offset before _follow_camera() takes over
+    # `offset` for pixel alignment.
+    _camera_base_offset = camera.offset
     health_changed.emit(health, max_health)
     stamina_changed.emit(stamina, max_stamina)
 
@@ -172,7 +183,7 @@ func _physics_process(delta: float) -> void:
         sprite.modulate = Color(0.55, 0.55, 0.6)
     else:
         sprite.modulate = Color(1.0, 0.55, 0.55) if _flash_left > 0.0 else Color.WHITE
-    camera.offset = Vector2(randi_range(-3, 3), randi_range(-3, 3)) if _shake_left > 0.0 else Vector2.ZERO
+    _follow_camera()
     _apply_anim_speed()
 
     if stamina_boost_left > 0.0:
@@ -376,6 +387,37 @@ func _hold_regen() -> void:
     _regen_hold_left = stamina_regen_delay
 
 
+## Keep the camera locked to the player and aligned to the pixel grid.
+##
+## The scene ships `position_smoothing_enabled = true`, which makes the camera lag
+## behind the body and move in uneven steps -- measured at 0 to 4.4 px per frame
+## while the player moves a constant 3.67 px. In world space the walk is perfectly
+## even, so that unevenness only exists on screen, where it reads as a stutter, and
+## for pixel art it also drags the world across half pixels and makes the tiles
+## shimmer.
+##
+## With the camera trailing by a whole pixel the sprite keeps its sub-pixel
+## position, so motion stays smooth, while the world stays aligned to the grid.
+func _follow_camera() -> void:
+    camera.position_smoothing_enabled = false
+    var base := _camera_base_offset
+    if _shake_left > 0.0:
+        # Impact shake. The jitter is computed once when the shake starts and held
+        # for its duration; recomputing it per frame would add camera judder on top
+        # of the shake.
+        if _shake_offset == Vector2.ZERO:
+            _shake_offset = Vector2(float(randi_range(-2, 2)), float(randi_range(-2, 2)))
+        base += _shake_offset
+    elif _shake_offset != Vector2.ZERO:
+        _shake_offset = Vector2.ZERO
+    # Snap the camera centre to a whole pixel, so the world never resamples while
+    # the sprite keeps its sub-pixel position and motion stays smooth.
+    camera.offset = Vector2(
+        base.x - fposmod(global_position.x + base.x, 1.0),
+        base.y - fposmod(global_position.y + base.y, 1.0)
+    )
+
+
 ## Break guard and lock the stamina actions for a short exhausted window. Called
 ## when a block runs the player out of stamina.
 ##
@@ -499,6 +541,12 @@ func _on_attack_area_entered(area: Area2D) -> void:
         return
     var identifier := enemy.get_instance_id()
     if _attack_hits.has(identifier):
+        return
+    # The player's melee cannot cross between elevation levels. A swing made from
+    # the low ground does not reach a target on a plateau, and one made from a
+    # plateau does not reach down to the low ground: terrain is a real boundary for
+    # the player in both directions, while enemy arrows fly over it.
+    if ENV.elevation_at(global_position) != ENV.elevation_at((enemy as Node2D).global_position):
         return
     _attack_hits[identifier] = true
     var amount := attack_damage + (20 if upgrades.has("heavy_blade") else 0)
