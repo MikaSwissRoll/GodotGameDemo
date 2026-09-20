@@ -142,11 +142,31 @@ static func add_icon(parent: Control, texture_path: String, at: Vector2, size: V
 const SHIKASHI_SHEET := "res://asset/Shikashi's Fantasy Icons Pack v2/#1 - Transparent Icons.png"
 const SHIKASHI_BUBBLE := Rect2i(96, 0, 32, 32)
 
-## Local-space y for the marker and the interaction prompt. The pawn sprite is
-## 192px at 0.8 scale, so its head reaches y = -113; the marker sits above that
-## and the prompt below the marker, both clear of the sprite.
-const INTERACT_MARKER_Y := -178.0
-const INTERACT_PROMPT_Y := -126.0
+## Local-space placement for the marker and the interaction prompt.
+##
+## Measured from the running scene, because the sprite metrics are misleading: a
+## pawn frame is 192px but the character only occupies rows 64..134 of it, and the
+## AnimatedSprite2D node ends up at scale 1.0 (not the 0.8 that the resident
+## script uses). With position y=-36 that puts the head at local y=-68, not the
+## -132 the frame height suggests, and not the -61.6 that a 0.8 scale implies.
+##
+## Local-space placement for the marker and the interaction prompt.
+##
+## Measured from the running scene rather than derived, because the sprite metrics
+## mislead in two ways: a pawn frame is 192px but the character only occupies rows
+## 64..134 of it, and the AnimatedSprite2D sits at position y=-36 with scale 1.0.
+## The engine therefore reports the guard's sprite at world (1390, 899) and its
+## head top at world y=867, which is local y=-66 -- not the -132 the frame size
+## suggests, and not the -61.6 that a 0.8 scale would give.
+##
+## The marker icon is 32px drawn at 2x, so it is 64px tall. At -157 the bubble's
+## bottom sits just above the head: measured against the engine, the guard's head
+## top is 6px below the bubble at -137, so both the bubble and the prompt were
+## lowered 20px from there to sit the marker closer to the NPC.
+const INTERACT_MARKER_Y := -157.0
+const INTERACT_MARKER_X := 10.0
+## Under the bubble's tail, offset with it.
+const INTERACT_PROMPT_Y := -148.0
 ## A gentle bob so the marker reads as a live invitation rather than a decal.
 const INTERACT_BOB := 4.0
 const INTERACT_BOB_SPEED := 2.6
@@ -162,7 +182,7 @@ static func add_interact_marker(parent: Node2D, phase: float = 0.0) -> Sprite2D:
     # 2x: the sheet is authored at 32px, which is small over a 1280x720 viewport.
     # An integer scale keeps the pixels sharp.
     marker.scale = Vector2(2.0, 2.0)
-    marker.position = Vector2(0.0, INTERACT_MARKER_Y)
+    marker.position = Vector2(INTERACT_MARKER_X, INTERACT_MARKER_Y)
     marker.z_index = 1
     marker.set_meta("bob_phase", phase)
     parent.add_child(marker)
