@@ -605,11 +605,12 @@ func _on_attack_area_entered(area: Area2D) -> void:
     var identifier := enemy.get_instance_id()
     if _attack_hits.has(identifier):
         return
-    # The player's melee cannot cross between elevation levels. A swing made from
-    # the low ground does not reach a target on a plateau, and one made from a
-    # plateau does not reach down to the low ground: terrain is a real boundary for
-    # the player in both directions, while enemy arrows fly over it.
-    if ENV.elevation_at(global_position) != ENV.elevation_at((enemy as Node2D).global_position):
+    # Melee cannot cross between elevation levels: a swing from the low ground does
+    # not reach a plateau, and one from a plateau does not reach down. Terrain is a
+    # real boundary for the player in both directions, while enemy arrows fly over
+    # it. The rule itself lives in `Elevation.melee_allowed`, so the player, the
+    # companion and the bandits cannot drift apart on what a cliff means.
+    if not Elevation.melee_allowed(self, enemy as Node2D):
         return
     _attack_hits[identifier] = true
     var amount := attack_damage + (20 if upgrades.has("heavy_blade") else 0)
@@ -628,6 +629,11 @@ func _on_dash_area_entered(area: Area2D) -> void:
         return
     var identifier := enemy.get_instance_id()
     if _dash_hits.has(identifier):
+        return
+    # Dash-cleave is melee damage too, so it obeys the same elevation rule as the
+    # swing. It did not, which meant the player could damage across a cliff with a
+    # dash while the ordinary attack beside it was refused.
+    if not Elevation.melee_allowed(self, enemy as Node2D):
         return
     _dash_hits[identifier] = true
     enemy.take_damage(18, facing)

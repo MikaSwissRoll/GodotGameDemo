@@ -79,16 +79,35 @@ func _physics_process(delta: float) -> void:
     var direction := to_player.normalized()
     if distance < detection_range:
         sprite.flip_h = direction.x < 0.0
-    # A cliff face is not a path. Arrows still fly over terrain, but the archer
-    # itself no longer climbs a cliff to reposition, and it does not fire when the
-    # only thing between it and the target is a cliff face it is standing against.
+    # A cliff face is not a path, so the archer does not climb one to reposition.
+    #
+    # It DOES fire across elevations. Arrows fly over terrain, and that is
+    # deliberate: `Elevation.ranged_allowed` states that an elevation difference
+    # never invalidates a ranged target, and reachability is never required. The
+    # comment that used to sit here claimed the archer refused to fire across a
+    # cliff; the code never did, and the rule is now written down instead of being
+    # an accident of a missing check.
     var same_level := not _elevation_blocks(target.global_position)
     if _shooting:
         velocity = _knockback
     elif not same_level:
-        velocity = _knockback
-        if sprite.animation != "idle" and not _shooting:
-            sprite.play("idle")
+        if distance >= detection_range and Elevation.levels_are_connected():
+            # Out of range and one level away: take the ramp to close the distance
+            # rather than standing still forever.
+            var waypoint := Elevation.route_point(global_position, target.global_position)
+            var to_waypoint := waypoint - global_position
+            if to_waypoint.length() > 1.0:
+                velocity = to_waypoint.normalized() * move_speed + _knockback
+                if sprite.animation != "run":
+                    sprite.play("run")
+            else:
+                velocity = _knockback
+        else:
+            # In range, or no route: hold position and keep shooting. Standing still
+            # is a stable state, not a freeze - a cliff cannot be walked up.
+            velocity = _knockback
+            if sprite.animation != "idle" and not _shooting:
+                sprite.play("idle")
     elif distance < detection_range and distance < preferred_range * 0.65:
         velocity = -direction * move_speed + _knockback
         if sprite.animation != "run":
@@ -158,10 +177,10 @@ func _nearest_party_actor() -> Node2D:
 
 
 ## True when the straight line to the target would cross between elevation levels.
-## Arrows are not told about elevation and still fly over cliffs, but the archer
-## itself must not climb one to reposition.
+## Arrows are not told about elevation and still fly over cliffs, so this gates
+## repositioning only - never firing. The authority is `Elevation`.
 func _elevation_blocks(target_point: Vector2) -> bool:
-    return ENV.elevation_at(global_position) != ENV.elevation_at(target_point)
+    return Elevation.level_at(global_position) != Elevation.level_at(target_point)
 
 
 func _shoot(direction: Vector2) -> void:

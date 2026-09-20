@@ -59,13 +59,11 @@ var _approach_retry_left := 0.0
 
 ## True when the straight line to the target would cross between elevation levels.
 ##
-## The plateau registry only walls a cliff's bottom edge, so an enemy used to walk
-## up a cliff face onto the high ground and attack from there. Terrain is a real
-## boundary for the player's melee in both directions, so it is now a boundary for
-## the enemy too: it may fight along a level, or walk up a ramp, but it may not
-## climb a cliff or reach across one.
+## The rule itself lives in `Elevation`, which is the one authority for it, so the
+## enemy, the player and the companion cannot drift apart on what a cliff means.
+## This helper only asks the question; `Elevation.melee_allowed` decides the answer.
 func _elevation_blocks(target_point: Vector2) -> bool:
-    return ENV.elevation_at(global_position) != ENV.elevation_at(target_point)
+    return Elevation.level_at(global_position) != Elevation.level_at(target_point)
 
 
 func _ready() -> void:
@@ -244,6 +242,25 @@ func _start_attack() -> void:
 func _update_cliff_hold(delta: float, same_level: bool) -> bool:
     if same_level:
         return false
+    # A declared ramp is a route, so take it. The enemy used to back away from the
+    # cliff, wait out the retry pause, and then fall into the idle branch forever -
+    # the pause was never actually followed by a retry, so an enemy whose target was
+    # one level up simply stood still and looked broken.
+    if Elevation.levels_are_connected():
+        var waypoint := Elevation.route_point(global_position, target.global_position)
+        var to_waypoint := waypoint - global_position
+        if to_waypoint.length() > 1.0:
+            _holding_ground = false
+            _approach_retry_left = 0.0
+            _facing = to_waypoint.normalized()
+            sprite.flip_h = _facing.x < 0.0
+            velocity = _facing * move_speed + _knockback
+            _run()
+            move_and_slide()
+            return true
+    # No ramp joins the levels, so the target is genuinely out of reach. Back clear
+    # of the cliff and wait; this is a stable state, not a freeze, and it is only
+    # reached when there is no route at all.
     var to_target := target.global_position - global_position
     var away := -to_target
     if away.length() < 1.0:
@@ -296,7 +313,7 @@ func _on_attack_area_entered(area: Area2D) -> void:
     # decision to attack left a swing that straddled the edge able to land, because
     # the hitbox is offset in front of the enemy and can cross the line its own feet
     # have not crossed. The player's melee has always refused the same way.
-    if _elevation_blocks((victim as Node2D).global_position):
+    if not Elevation.melee_allowed(self, victim as Node2D):
         return
     _hit_this_swing = true
     victim.take_damage(damage, _attack_direction)

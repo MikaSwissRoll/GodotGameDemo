@@ -196,7 +196,12 @@ func _advance_slot() -> void:
 
 
 func _process_follow(delta: float) -> void:
-	var to_slot := _slot - global_position
+	# Route through the elevation model, so a companion left below a cliff walks to
+	# the ramp instead of pressing against the wall. With no ramp the route degrades
+	# to the slot itself and the cliff stops it, which is the honest outcome: the
+	# companion cannot follow through terrain it cannot cross.
+	var goal := Elevation.route_point(global_position, _slot)
+	var to_slot := goal - global_position
 	var distance := to_slot.length()
 	if distance <= follow_stop_distance:
 		# Close enough: stop rather than oscillating around the exact point.
@@ -280,6 +285,11 @@ func _on_attack_area_entered(area: Area2D) -> void:
 	# Belt and braces: the mask already excludes anything friendly, but a mis-set
 	# mask in a future scene must not turn into friendly fire.
 	if not Party.is_hostile(enemy):
+		return
+	# A companion is a melee actor, so it obeys the same elevation rule as the player
+	# and the bandits. It previously had no elevation test at all, and its hitbox
+	# sits 44px in front of it, so it damaged across a cliff in both directions.
+	if not Elevation.melee_allowed(self, enemy as Node2D):
 		return
 	enemy.take_damage(attack_damage, _facing)
 
@@ -412,12 +422,23 @@ func _safe_point_near_player() -> Vector2:
 	for attempt in 8:
 		var angle := TAU * float(attempt) / 8.0
 		var candidate := _player.global_position + Vector2(cos(angle), sin(angle)) * 56.0
+		# Never place the companion on a different elevation from the one it is
+		# standing on. Recovery is allowed to move it around, but not to bypass the
+		# level model: appearing on a terrace it could not have walked onto is exactly
+		# the kind of shortcut that makes terrain meaningless.
+		if Elevation.level_at(candidate) != Elevation.level_at(global_position):
+			continue
 		var query := PhysicsPointQueryParameters2D.new()
 		query.position = candidate
 		query.collision_mask = Party.LAYER_WORLD
 		query.collide_with_areas = false
 		if space.intersect_point(query, 1).is_empty():
 			return candidate
+	# No same-level point was found. If the player is on another elevation there is
+	# no legal place to put the companion at all, so it stays where it is and walks
+	# the ramp instead of being teleported up a cliff.
+	if Elevation.level_at(_player.global_position) != Elevation.level_at(global_position):
+		return global_position
 	return _player.global_position + follow_offset
 
 

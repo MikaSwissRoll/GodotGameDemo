@@ -33,10 +33,20 @@ func _on_area_entered(area: Area2D) -> void:
     queue_free()
 
 
-## Arrows fly over terrain. They are not stopped by cliffs, plateau walls, or any
-## other static body, and they do not distinguish elevation: a shot fired from a
-## plateau reaches the low ground and a shot fired from below reaches a plateau.
+## Arrows fly over terrain. A cliff boundary is a **character movement** blocker, not
+## a projectile blocker, so a shot fired from high ground reaches the low ground and
+## one fired from below reaches a plateau. See
+## `docs/environment/ELEVATION_SYSTEM.md` section 5.
 ##
-## The terrain restriction lives on the player's melee attack instead, which cannot
-## cross between elevation levels. Keeping it here as well made enemy archers stop
-## at a wall the player could simply walk around.
+## That separation is now stated rather than accidental. The scene's mask used to
+## include the world-geometry bit, which looked like cliffs blocked arrows; they did
+## not, because this script only ever connected `area_entered` and world geometry is
+## a `StaticBody2D`, so the bit could never fire. It has been removed, so the mask
+## says exactly what the arrow does: it hits party hurtboxes and nothing else.
+##
+## If a scene ever needs a real projectile blocker - a closed gate, a fortress wall -
+## give it its own layer and add that bit here. Do not reuse the cliff boundary:
+## that would silently change what terrain means for every ranged attacker.
+##
+## The elevation rule for melee lives on the melee paths instead, because a melee
+## blow cannot cross between levels.

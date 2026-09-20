@@ -184,3 +184,49 @@ static func could_reach_by_level(from_level: int, to_level: int) -> bool:
     if from_level == to_level:
         return true
     return levels_are_connected()
+
+
+static func ramp_center(ramp: Rect2i) -> Vector2:
+    return rect_of_tiles(ramp).get_center()
+
+
+## The nearest declared ramp to a point, or an empty rect when there is none.
+static func nearest_ramp_to(point: Vector2) -> Rect2i:
+    var best := Rect2i(0, 0, 0, 0)
+    var best_distance := INF
+    for ramp in _ramps:
+        var distance := point.distance_to(ramp_center(ramp))
+        if distance < best_distance:
+            best_distance = distance
+            best = ramp
+    return best
+
+
+## The point an actor should steer at, this frame, to eventually reach `to`.
+##
+## This is the whole navigation model, and it is deliberately small. There are two
+## levels and a ramp is the only link, so the route is either "straight there" or
+## "via the ramp". No navmesh, no bake step, and nothing that can silently fail to
+## find a path it should have found.
+##
+## Returns `to` unchanged when there is no route. The caller must then treat the
+## target as unreachable and settle into a stable state rather than pressing against
+## the cliff - see `docs/environment/ELEVATION_SYSTEM.md` section 8.3.
+static func route_point(from: Vector2, to: Vector2) -> Vector2:
+    if level_at(from) == level_at(to):
+        return to
+    # A ramp is LOW ground, so an actor standing on one still reads as being on the
+    # wrong level. Without this it would steer at the ramp centre it is already
+    # standing on and oscillate there forever instead of crossing. On a ramp the
+    # actor is committed to the crossing, so it heads straight for the target.
+    if is_ramp(from):
+        return to
+    var ramp := nearest_ramp_to(from)
+    if ramp.size == Vector2i.ZERO:
+        return to
+    return ramp_center(ramp)
+
+
+## Whether a route exists at all between two points, by the level model alone.
+static func has_route(from: Vector2, to: Vector2) -> bool:
+    return level_at(from) == level_at(to) or levels_are_connected()
