@@ -39,7 +39,11 @@ enum MoveDir { UP = 1, DOWN = 2, LEFT = 4, RIGHT = 8 }
 @export var movement_bounds := Rect2(24.0, 24.0, 4752.0, 1452.0)
 @export var max_health: int = 100
 @export var max_stamina: float = 100.0
-@export var stamina_regen_rate: float = 22.0
+## Stamina restored per second once regeneration resumes. Doubled from 22 for a
+## faster recovery feel; a full bar now refills in a bit over two seconds instead of
+## nearly five. Both Classic and Roguelite share this script, so neither needs a
+## separate value.
+@export var stamina_regen_rate: float = 44.0
 @export var attack_stamina_cost: float = 20.0
 @export var dash_stamina_cost: float = 30.0
 @export var guard_block_cost: float = 8.0
