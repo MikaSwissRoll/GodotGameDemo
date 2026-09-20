@@ -76,9 +76,10 @@ func _run() -> void:
             if not await _walk_to(Vector2(2300, 850), 400):
                 _fail("Could not return to the bridge lane before fighting %s" % enemy_name)
                 return
-        if not await _fight(enemy, 800):
-            _fail("Could not defeat %s; player at %s, enemy at %s, HP=%d" % [
-                enemy_name, player.global_position, enemy.global_position, player.health])
+        if not await _fight(enemy, 1800):
+            _fail("Could not defeat %s; player at %s, enemy at %s, HP=%d stamina=%.1f enemyHP=%.1f" % [
+                enemy_name, player.global_position, enemy.global_position,
+                player.health, player.stamina, enemy.health])
             return
         var coin := _nearest_gold(enemy.global_position)
         if coin != null:
@@ -112,7 +113,10 @@ func _walk_route(route: Array[Vector2], failure: String) -> bool:
     var index := 0
     for point in route:
         index += 1
-        if not await _walk_to(point, 700, 12.0):
+        # Waypoints only need to be reached closely enough to line up the next leg;
+        # too tight a tolerance stalls the walk a pixel or two short, which reads
+        # as being stuck rather than as a route problem.
+        if not await _walk_to(point, 700, 20.0):
             _fail("%s (leg %d/%d to %s; player at %s)" % [
                 failure, index, route.size(), point, player.global_position])
             return false
@@ -137,6 +141,11 @@ func _walk_to(destination: Vector2, max_frames: int, tolerance: float = 30.0) ->
 
 
 func _fight(enemy: Enemy, max_frames: int) -> bool:
+    ## Swings only while it can still afford a second one. Spending the bar to
+    ## empty is what triggers a guard break, and a broken guard cannot block, so
+    ## an aggressive loop now loses the fight it used to win. Holding a reserve is
+    ## what a competent player does once stamina gates attacks.
+    var reserve := player.get_attack_cost() * 2.0
     var attack_held := false
     for frame_index in max_frames:
         if player.is_dead():
@@ -152,13 +161,17 @@ func _fight(enemy: Enemy, max_frames: int) -> bool:
             Input.action_release("attack")
             attack_held = false
             released_attack = true
+        var may_swing := player.stamina >= reserve
         if player._attacking:
             _set_movement(Vector2.ZERO)
         elif toward.length() > 76.0:
-            _set_movement(toward)
+            # Back off while spent, so incoming blows land on a raised shield
+            # rather than on a player with nothing left to block with.
+            _set_movement(toward if may_swing else -toward)
         else:
             _set_movement(Vector2.ZERO)
-        if toward.length() < 100.0 and player._attack_cooldown_left <= 0.0 and not player._attacking and not released_attack:
+        if toward.length() < 100.0 and may_swing and player._attack_cooldown_left <= 0.0 \
+                and not player._attacking and not released_attack:
             _set_movement(toward)
             Input.action_press("attack")
             attack_held = true

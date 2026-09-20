@@ -51,9 +51,20 @@ func _run() -> void:
     Input.action_release("attack")
     assert(not player._attacking, "Attack started without stamina")
     var empty_stamina := player.stamina
-    for frame_index in 12:
+    # A refused action does not itself hold regeneration, but the successful blocks
+    # above did, and that hold is still running. Assert the hold suppresses regen
+    # while it lasts, then that regen resumes once it clears. The loop tests the
+    # hold rather than counting frames, so the boundary frame cannot be missed.
+    var guard_frames := 0
+    while player._regen_hold_left > 0.0 and guard_frames < 120:
+        assert(is_equal_approx(player.stamina, empty_stamina),
+            "Stamina regenerated while the post-action hold was still running")
         await physics_frame
-    assert(player.stamina > empty_stamina, "Stamina did not regenerate")
+        guard_frames += 1
+    assert(guard_frames < 120, "the post-action hold never cleared")
+    for frame_index in 20:
+        await physics_frame
+    assert(player.stamina > empty_stamina, "Stamina did not regenerate after the hold")
     player._change_stamina(player.max_stamina)
     var before_attack := player.stamina
     Input.action_press("attack")

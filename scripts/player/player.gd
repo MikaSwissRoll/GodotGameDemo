@@ -8,6 +8,14 @@ const BLUE_WARRIOR := "res://asset/Units/Blue Units/Warrior/"
 signal health_changed(current: int, maximum: int)
 signal stamina_changed(current: float, maximum: float)
 signal stamina_boost_changed(remaining: float)
+## Emitted when stamina crosses a warning threshold downwards, so the HUD can
+## shake once. `level` is 1 for the first warning and 2 for the deeper one.
+signal stamina_warning(level: int)
+## Emitted when an action was refused for lack of stamina, so the HUD can react.
+## Never silent: the player pressed a button and must see why nothing happened.
+signal stamina_denied(action: String)
+## Emitted when a block ran the player out of stamina and guard broke.
+signal guard_broken_exhausted
 signal attack_blocked
 signal died
 
@@ -21,6 +29,33 @@ signal died
 @export var guard_block_cost: float = 8.0
 @export var guard_min_stamina: float = 10.0
 @export_range(0.0, 360.0, 1.0) var guard_arc_degrees: float = 240.0
+
+## Stamina feedback tuning. The balance values above are deliberately unchanged;
+## these only shape how the player is told about them.
+##
+## Crossing either threshold downwards fires a one-shot HUD warning. Each
+## threshold re-arms only once stamina has climbed back above it, so regenerating
+## through the boundary cannot retrigger the warning every frame.
+@export var warn_stamina: float = 30.0
+@export var warn_stamina_deep: float = 20.0
+## Stamina does not resume regenerating until this long after an action, so a
+## spend reads as a cost for a moment before it refills.
+@export var stamina_regen_delay: float = 0.5
+## A refused attack or dash is remembered this long and fires automatically once
+## stamina allows it, so a valid press is not silently dropped.
+@export var stamina_input_buffer: float = 0.15
+## Guard break lasts this long, locking all three stamina actions.
+@export var exhausted_duration: float = 0.45
+## Animation speed during the exhausted state. Only exhaustion slows animation;
+## ordinary low stamina never does, so the controls never feel laggy.
+@export var exhausted_anim_speed: float = 0.7
+## Movement is slightly reduced while exhausted, so the state is felt as well as
+## seen without removing control.
+@export var exhausted_move_scale: float = 0.75
+## Invulnerability granted at the moment guard breaks. Long enough to cover the
+## retaliation that would otherwise land while the player cannot act.
+@export var exhausted_break_grace: float = 0.45
+
 @export var attack_damage: int = 25
 @export var attack_cooldown: float = 0.5
 @export var dash_speed: float = 650.0
@@ -54,6 +89,17 @@ var _shake_left := 0.0
 var _knockback := Vector2.ZERO
 var _attack_hits: Dictionary = {}
 var _dash_hits: Dictionary = {}
+## Feedback state.
+var _regen_hold_left := 0.0
+var _buffer_attack_left := 0.0
+var _buffer_dash_left := 0.0
+var _exhausted_left := 0.0
+## Threshold latches, so each warning fires once per downward crossing.
+var _warn_latch := false
+var _warn_deep_latch := false
+## Test-only: bypasses the post-hit invulnerability window so a harness can drive
+## several hits in a row. Never set during play.
+var test_ignore_invulnerability := false
 
 
 func _ready() -> void:
@@ -83,12 +129,17 @@ func _physics_process(delta: float) -> void:
     _invulnerability_left = maxf(0.0, _invulnerability_left - delta)
     _flash_left = maxf(0.0, _flash_left - delta)
     _shake_left = maxf(0.0, _shake_left - delta)
+    _regen_hold_left = maxf(0.0, _regen_hold_left - delta)
+    _buffer_attack_left = maxf(0.0, _buffer_attack_left - delta)
+    _buffer_dash_left = maxf(0.0, _buffer_dash_left - delta)
+    _exhausted_left = maxf(0.0, _exhausted_left - delta)
     _knockback = _knockback.move_toward(Vector2.ZERO, 900.0 * delta)
     if _dead:
         sprite.modulate = Color(0.55, 0.55, 0.6)
     else:
         sprite.modulate = Color(1.0, 0.55, 0.55) if _flash_left > 0.0 else Color.WHITE
     camera.offset = Vector2(randi_range(-3, 3), randi_range(-3, 3)) if _shake_left > 0.0 else Vector2.ZERO
+    _apply_anim_speed()
 
     if stamina_boost_left > 0.0:
         stamina_boost_left = maxf(0.0, stamina_boost_left - delta)
@@ -102,18 +153,43 @@ func _physics_process(delta: float) -> void:
         dash_hitbox.monitoring = false
         return
 
+    var exhausted := is_exhausted()
     var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     if not Input.is_action_pressed("guard"):
         _guard_broken = false
-    guarding = Input.is_action_pressed("guard") and not _guard_broken and not _attacking and _dash_left <= 0.0 and stamina >= guard_min_stamina
+    # Any stamina above zero is enough to raise the shield. The cost is settled
+    # when a hit actually lands, which is what makes the last block work.
+    guarding = (Input.is_action_pressed("guard") and not _guard_broken
+        and not _attacking and _dash_left <= 0.0 and not exhausted and stamina > 0.0)
 
     # Keep the shield aimed where it was raised while allowing strafing.
     if direction != Vector2.ZERO and _dash_left <= 0.0 and not guarding:
         facing = direction.normalized()
         sprite.flip_h = facing.x < -0.1
 
-    if Input.is_action_just_pressed("dash") and _dash_cooldown_left <= 0.0 and not _attacking and not guarding and stamina >= get_dash_cost():
-        _change_stamina(-get_dash_cost())
+    var dash_cost := get_dash_cost()
+    var attack_cost := get_attack_cost()
+    var can_act := not _attacking and _dash_left <= 0.0 and not guarding and not exhausted
+
+    # A press that is refused for stamina is remembered briefly, so the action
+    # fires on its own as soon as stamina allows instead of the press being lost.
+    # Holding the key keeps the buffer alive instead of only arming on the initial
+    # press: a player who holds attack through the wait must still get the swing,
+    # since frame-perfect re-pressing is not something to demand of them.
+    var holding_dash := Input.is_action_pressed("dash")
+    var holding_attack := Input.is_action_pressed("attack")
+    if can_act and _dash_cooldown_left <= 0.0 and (Input.is_action_just_pressed("dash") or holding_dash):
+        _buffer_dash_left = stamina_input_buffer
+    if can_act and _attack_cooldown_left <= 0.0 and (Input.is_action_just_pressed("attack") or holding_attack):
+        _buffer_attack_left = stamina_input_buffer
+
+    var want_dash := _buffer_dash_left > 0.0 and holding_dash
+    var want_attack := _buffer_attack_left > 0.0 and holding_attack
+
+    if can_act and _dash_cooldown_left <= 0.0 and want_dash and stamina >= dash_cost:
+        _buffer_dash_left = 0.0
+        _change_stamina(-dash_cost)
+        _hold_regen()
         _dash_left = dash_duration
         _dash_cooldown_left = dash_cooldown - (0.25 if upgrades.has("swift_step") else 0.0)
         _invulnerability_left = dash_duration + 0.08
@@ -123,17 +199,31 @@ func _physics_process(delta: float) -> void:
         _dash_hits.clear()
         dash_hitbox.monitoring = upgrades.has("dash_cleave")
 
-    if Input.is_action_just_pressed("attack") and _attack_cooldown_left <= 0.0 and _dash_left <= 0.0 and not guarding and stamina >= get_attack_cost():
-        _change_stamina(-get_attack_cost())
+    if can_act and _attack_cooldown_left <= 0.0 and want_attack and stamina >= attack_cost:
+        _buffer_attack_left = 0.0
+        _change_stamina(-attack_cost)
+        _hold_regen()
         _start_attack()
 
-    if not guarding and not _attacking and _dash_left <= 0.0:
+    # Refuse loudly: a press that cannot be afforded tells the HUD, so the next
+    # attempt is not a surprise. Fired on the initial press only, so holding the
+    # key does not spam the warning every frame.
+    if can_act and _dash_cooldown_left <= 0.0 and Input.is_action_just_pressed("dash") \
+            and stamina < dash_cost:
+        stamina_denied.emit("dash")
+    if can_act and _attack_cooldown_left <= 0.0 and Input.is_action_just_pressed("attack") \
+            and stamina < attack_cost:
+        stamina_denied.emit("attack")
+
+    if _regen_hold_left <= 0.0 and not guarding and not _attacking and _dash_left <= 0.0:
         _change_stamina(stamina_regen_rate * stamina_boost_multiplier * delta)
 
     if _dash_left > 0.0:
         velocity = facing * dash_speed
     elif guarding:
         velocity = direction * move_speed * 0.6 + _knockback
+    elif exhausted:
+        velocity = direction * move_speed * exhausted_move_scale + _knockback
     else:
         velocity = direction * move_speed + _knockback
     move_and_slide()
@@ -161,6 +251,64 @@ func get_dash_cost() -> float:
     return dash_stamina_cost - (10.0 if upgrades.has("swift_step") else 0.0)
 
 
+## True while guard is broken from running out of stamina. All three stamina
+## actions are locked for the duration.
+func is_exhausted() -> bool:
+    return _exhausted_left > 0.0
+
+
+func exhausted_left() -> float:
+    return _exhausted_left
+
+
+## Suppress regeneration briefly after a spend, so the cost is felt before the bar
+## starts climbing again.
+func _hold_regen() -> void:
+    _regen_hold_left = stamina_regen_delay
+
+
+## Break guard and lock the stamina actions for a short exhausted window. Called
+## when a block runs the player out of stamina.
+##
+## Grants brief invulnerability, because the block that breaks guard was the blow
+## the player had already committed to stopping: without it, running out of
+## stamina means taking that hit plus the next one while unable to act, which
+## punishes the correct play twice.
+func _enter_exhausted() -> void:
+    _exhausted_left = exhausted_duration
+    _guard_broken = true
+    guarding = false
+    _invulnerability_left = maxf(_invulnerability_left, exhausted_break_grace)
+    _shake_left = 0.12
+    guard_broken_exhausted.emit()
+
+
+## Only the exhausted state slows animation. Low stamina on its own never does, so
+## a warning never turns into laggy controls.
+func _apply_anim_speed() -> void:
+    var wanted := exhausted_anim_speed if is_exhausted() else 1.0
+    if not is_equal_approx(sprite.speed_scale, wanted):
+        sprite.speed_scale = wanted
+
+
+## Fire the one-shot HUD warnings on downward threshold crossings. Each latch
+## clears only once stamina is back above its threshold, so regenerating over the
+## line cannot retrigger the warning every frame.
+func _check_stamina_warnings() -> void:
+    if stamina <= warn_stamina_deep:
+        if not _warn_deep_latch:
+            _warn_deep_latch = true
+            _warn_latch = true
+            stamina_warning.emit(2)
+    elif stamina <= warn_stamina:
+        if not _warn_latch:
+            _warn_latch = true
+            stamina_warning.emit(1)
+    else:
+        _warn_latch = false
+        _warn_deep_latch = false
+
+
 func add_upgrade(id: String) -> void:
     upgrades[id] = true
 
@@ -175,6 +323,14 @@ func _change_stamina(amount: float) -> void:
     if not is_equal_approx(next_stamina, stamina):
         stamina = next_stamina
         stamina_changed.emit(stamina, max_stamina)
+        if amount < 0.0:
+            _check_stamina_warnings()
+        elif stamina > warn_stamina:
+            # Re-arm both warnings once safely clear, so the next descent warns
+            # again. Done on the upward move rather than only inside
+            # `_check_stamina_warnings`, which spending can never reach.
+            _warn_latch = false
+            _warn_deep_latch = false
 
 
 func restore_stamina() -> void:
@@ -248,18 +404,27 @@ func _on_dash_area_entered(area: Area2D) -> void:
 
 
 func take_damage(amount: int, source_direction: Vector2) -> void:
-    if _dead or _invulnerability_left > 0.0:
+    if _dead or (_invulnerability_left > 0.0 and not test_ignore_invulnerability):
         return
     var incoming := -source_direction.normalized()
     var block_cost := guard_block_cost - (4.0 if upgrades.has("iron_guard") else 0.0)
     var half_arc_radians := deg_to_rad(guard_arc_degrees * 0.5)
     var arc_threshold := cos(half_arc_radians)
     var inside_guard_arc := incoming == Vector2.ZERO or facing.dot(incoming) >= arc_threshold
-    if guarding and stamina >= block_cost and inside_guard_arc:
-        _change_stamina(-block_cost)
-        if stamina < guard_min_stamina:
-            guarding = false
-            _guard_broken = true
+    # Last-chance guard: raising the shield only needs stamina above zero, so a hit
+    # that lands while the player is nearly spent is still blocked. Paying for it
+    # can then empty the bar, which breaks guard.
+    if guarding and stamina > 0.0 and inside_guard_arc:
+        var affordable := stamina >= block_cost
+        if affordable:
+            _change_stamina(-block_cost)
+            _hold_regen()
+        else:
+            # Block it anyway, but spend everything and break.
+            _change_stamina(-stamina)
+            _hold_regen()
+        if not affordable or stamina < guard_min_stamina:
+            _enter_exhausted()
         if upgrades.has("shield_counter"):
             counter_ready = true
         _shake_left = 0.08

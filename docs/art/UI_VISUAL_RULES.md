@@ -141,6 +141,28 @@ Keyboard focus must remain visible. Text and icon placement should not jump
 between states. Keep hit areas larger than the visible label and preserve clear
 spacing between adjacent actions.
 
+## Stamina feedback
+
+A player must never discover that stamina is empty only because an action stopped
+responding. Every stamina cost is announced twice: by the bar while it falls, and
+by immediate feedback when an action is refused.
+
+- Warning steps at **30** and **20**. Each fires a one-shot shake of the stamina
+  bar, the deeper step harder, plus a state icon beside the bar. Each threshold
+  re-arms only once stamina climbs back above it, so regenerating across the line
+  cannot retrigger the warning.
+- A **refused action** shakes the bar briefly and pops the icon. Refusal is never
+  silent, and never uses text or sound.
+- A **guard break** gets the strongest, shortest shake and the exhausted icon.
+- Feedback is debounced so repeated events cannot keep the icon up or turn the
+  shake into a permanent wobble. The bar must be still whenever nothing is wrong.
+- Icons come from the Shikashi atlas (`SHIKASHI_SWEAT`, `SHIKASHI_ZZZ`,
+  `SHIKASHI_SWOON`), drawn at an integer scale beside the stamina bar. The bar and
+  its fill artwork are never recoloured or modified for feedback.
+- **Low stamina must not slow normal actions.** Attack, dash, and guard keep their
+  timing so the controls never feel laggy; only the exhausted state slows
+  animation, and only briefly.
+
 ## Layout safety
 
 - Keep essential HUD inside a 20-pixel viewport inset.

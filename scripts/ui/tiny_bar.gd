@@ -116,6 +116,15 @@ var _band: Image
 var _built_width := -1
 var _built_ratio := -1.0
 
+## Feedback shake. The bar does not own its own position -- callers lay the HUD out
+## -- so the offset is applied to this Control's `position` and removed again on
+## the next frame, and only while a shake is live. That keeps layout authority with
+## the caller while still letting the bar lurch.
+var _shake_left := 0.0
+var _shake_total := 0.0
+var _shake_amplitude := 0.0
+var _shake_offset := Vector2.ZERO
+
 
 func _init() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -148,6 +157,37 @@ func _init() -> void:
 
 func ratio() -> float:
     return clampf(value / max_value, 0.0, 1.0)
+
+
+## Lurch the bar sideways briefly. Amplitude is in pixels and duration in seconds;
+## repeated calls replace the current shake rather than stacking, so spam cannot
+## compound into a permanent wobble.
+func shake(amplitude: float, duration: float) -> void:
+    _shake_amplitude = maxf(amplitude, _shake_amplitude if _shake_left > 0.0 else 0.0)
+    _shake_total = maxf(duration, 0.0001)
+    _shake_left = _shake_total
+
+
+func is_shaking() -> bool:
+    return _shake_left > 0.0
+
+
+func _process(delta: float) -> void:
+    var wanted := Vector2.ZERO
+    if _shake_left > 0.0:
+        _shake_left = maxf(0.0, _shake_left - delta)
+        # Decay to zero so the shake settles instead of stopping abruptly, and
+        # oscillate along x only: a bar that also bobs vertically reads as broken
+        # layout rather than as feedback.
+        var decay := _shake_left / _shake_total
+        var phase := (1.0 - decay) * TAU * 3.0
+        wanted.x = sin(phase) * _shake_amplitude * decay
+        if _shake_left == 0.0:
+            _shake_amplitude = 0.0
+    if wanted != _shake_offset:
+        position -= _shake_offset
+        _shake_offset = wanted
+        position += _shake_offset
 
 
 ## Native frame height for the active design, so callers can size correctly.

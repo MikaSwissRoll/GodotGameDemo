@@ -41,6 +41,10 @@ Use `-Output` to keep comparison images:
 | `wilderness` | River crossing and borderland |
 | `enemy_camp` | Red faction camp and enemies |
 | `combat` | Active roguelite combat room |
+| `stamina_low` | Stamina driven just past the shallow warning line (30) |
+| `stamina_deep` | Stamina driven past the deep warning line (20) |
+| `stamina_denied` | A refused action: the denial signal the player emits when a press cannot be afforded |
+| `stamina_exhausted` | Guard break reached through a real underfunded block |
 | `merchant_shop` | Roguelite merchant encounter in the arena |
 | `shop_overlay` | Four-action merchant modal, the tallest shared overlay |
 | `result_dead` | Run-failed result reached by an actual player death |

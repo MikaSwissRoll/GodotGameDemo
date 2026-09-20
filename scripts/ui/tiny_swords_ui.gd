@@ -142,6 +142,17 @@ static func add_icon(parent: Control, texture_path: String, at: Vector2, size: V
 const SHIKASHI_SHEET := "res://asset/Shikashi's Fantasy Icons Pack v2/#1 - Transparent Icons.png"
 const SHIKASHI_BUBBLE := Rect2i(96, 0, 32, 32)
 
+## Stamina state icons, also from the Shikashi sheet. The Tiny Swords icon set has
+## no fatigue or warning concept (its twelve icons are items: logs, meat, coin,
+## sword, shield, gems, cross, gear, info, notes), so these come from the fantasy
+## pack, addressed by measured pixel rect as always.
+##   sweat  a droplet, for the first warning step
+##   zzz    sleep, for the deeper warning
+##   swoon  a dazed face, for the guard-break exhausted state
+const SHIKASHI_SWEAT := Rect2i(320, 0, 32, 32)
+const SHIKASHI_ZZZ := Rect2i(224, 0, 32, 32)
+const SHIKASHI_SWOON := Rect2i(128, 0, 32, 32)
+
 ## Local-space placement for the marker and the interaction prompt.
 ##
 ## Measured from the running scene, because the sprite metrics are misleading: a
@@ -193,6 +204,24 @@ static func set_interact_marker_visible(marker: Sprite2D, shown: bool) -> void:
     # Reset to a neutral offset on appear, so it does not pop in mid-bounce.
     if shown:
         marker.position.y = INTERACT_MARKER_Y
+
+
+## A small state icon, cut from the same atlas as the NPC marker. `region` is one
+## of the SHIKASHI_* rects above. Returns the Sprite2D so callers can move or
+## re-texture it; nearest-filtered at an integer scale so it stays crisp against
+## the 32px source. Takes a Node parent so it works under either a Control or a
+## Node2D host.
+static func make_state_icon(parent: Node, region: Rect2i, icon_scale: float = 0.75) -> Sprite2D:
+    var icon := Sprite2D.new()
+    var tex := AtlasTexture.new()
+    tex.atlas = load(SHIKASHI_SHEET) as Texture2D
+    tex.region = region
+    icon.texture = tex
+    icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    icon.scale = Vector2(icon_scale, icon_scale)
+    icon.visible = false
+    parent.add_child(icon)
+    return icon
 
 
 ## Advance the marker bob. Call from the owner's _process with a running time.

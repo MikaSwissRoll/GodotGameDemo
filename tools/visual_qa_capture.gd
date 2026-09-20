@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 
 const VIEWPORT_SIZE := Vector2i(1280, 720)
 const TITLE_SCENE := "res://scenes/main/town_title.tscn"
@@ -16,6 +16,10 @@ const VALID_TARGETS := [
     "wilderness",
     "enemy_camp",
     "combat",
+    "stamina_low",
+    "stamina_deep",
+    "stamina_denied",
+    "stamina_exhausted",
     "merchant_shop",
     "dialogue_ui",
     "npc_marker_far",
@@ -40,9 +44,7 @@ func _run() -> void:
 
     DisplayServer.window_set_size(VIEWPORT_SIZE)
     root.size = VIEWPORT_SIZE
-    var scene_path := CLASSIC_SCENE if _target in [
-        "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far"
-    ] else RUN_SCENE
+    var scene_path := CLASSIC_SCENE if _target in CLASSIC_TARGETS else RUN_SCENE
     if _target in TITLE_TARGETS:
         scene_path = TITLE_SCENE
     var packed := load(scene_path) as PackedScene
@@ -113,14 +115,21 @@ func _parse_arguments() -> bool:
     return true
 
 
+## States staged on the classic scene. Everything else runs on the roguelite
+## scene, so a new roguelite target does not have to be registered in two places.
+const CLASSIC_TARGETS := [
+    "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far"
+]
+
+
 func _configure_target(game: Node) -> void:
     if _target in TITLE_TARGETS:
         await _configure_title_target(game)
         return
-    if _target in ["main_menu", "combat", "merchant_shop", "pause_menu", "reward_overlay", "shop_overlay", "result_dead"]:
-        await _configure_run_target(game)
-    else:
+    if _target in CLASSIC_TARGETS:
         await _configure_classic_target(game)
+    else:
+        await _configure_run_target(game)
 
 
 func _configure_title_target(title: Node) -> void:
@@ -164,6 +173,45 @@ func _configure_run_target(game: Node) -> void:
         "combat":
             ui.start_requested.emit()
             await _wait_frames(10)
+            paused = true
+        "stamina_low":
+            # Both warning steps in one frame: drive the player to just past each
+            # threshold and let the HUD show its icon, so the two severities can be
+            # compared side by side with the bar they belong to.
+            ui.start_requested.emit()
+            await _wait_frames(6)
+            game.player._change_stamina(-72.0)   # 100 -> 28, past the shallow line
+            await _wait_frames(3)
+            paused = true
+        "stamina_deep":
+            ui.start_requested.emit()
+            await _wait_frames(6)
+            game.player._change_stamina(-82.0)   # 100 -> 18, past the deep line
+            await _wait_frames(3)
+            paused = true
+        "stamina_denied":
+            # A refused action: stamina below both costs, then the denial signal the
+            # player emits when a press cannot be afforded.
+            ui.start_requested.emit()
+            await _wait_frames(6)
+            game.player._change_stamina(-95.0)   # 100 -> 5, affords nothing
+            await _wait_frames(2)
+            game.player.stamina_denied.emit("attack")
+            await _wait_frames(2)
+            paused = true
+        "stamina_exhausted":
+            # Guard break: a block that empties the bar. Drives the real path so the
+            # exhausted state and its animation slowdown are what gets captured.
+            ui.start_requested.emit()
+            await _wait_frames(6)
+            var p = game.player
+            p.test_ignore_invulnerability = true
+            p._change_stamina(-95.0)
+            p._guard_broken = false
+            p.guarding = true
+            p.facing = Vector2.RIGHT
+            p.take_damage(12, Vector2.LEFT)
+            await _wait_frames(2)
             paused = true
         "merchant_shop":
             game.gold = 12
