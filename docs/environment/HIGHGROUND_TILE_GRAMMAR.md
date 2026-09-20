@@ -172,40 +172,34 @@ All seven observed in the current project.
 | Platform with no functional relationship to gameplay | Drawn for looks; nothing can reach it, nothing uses it |
 | Ramp that does not read as a ramp | A **shoreline corner** used as an access route (§4) |
 
-## 9. Edges the tileset cannot draw
+## 9. Edges the tileset cannot draw as a cliff
 
 The stone face is a **horizontal** course. There is no vertical cliff art anywhere
-in the pack, so a high region can only show a drop along its **south** edge.
+in the pack, so a high region can render a cliff on its **south** edge only.
 
-Every other edge still has to be blocked — a cliff is a boundary on all sides
-(invariant 5) — but nothing can be drawn under that collision. The result is an
-invisible wall, which is exactly the failure the last line of §8 forbids: it looks
-walkable and is not.
+The other three edges still have to be blocked — a cliff is a boundary on every side
+(invariant 5) — and blocking an edge with nothing drawn under it produces an
+invisible wall, which is exactly what the last line of §8 forbids: it looks walkable
+and is not.
 
-`HighGround` pushes a warning when it builds such an edge. Treat it as a defect,
-not noise:
+`HighGround` resolves this by drawing a **retaining wall**: the same stone, laid
+along the low-side band that the collision already occupies, using the base course
+(`ROW_FACE_BOTTOM`) rather than the top course. The top course carries a grass
+overhang that only makes sense on a downward-facing drop; the base course is plain
+masonry and reads correctly as a wall running along an edge.
 
-```text
-HighGround 'CastleTerrace': 14 boundary wall(s) on the north/east/west edges have no
-drawn cliff face ... Those edges will read as walkable while being blocked.
-```
+The result is a terrace that looks held up rather than one whose ground simply
+stops. This is the grammar's preferred remedy — bound the edge with something
+visible, using the terrain's own material rather than scattered decoration.
 
-Three honest ways to resolve it, in order of preference:
+What is **not** acceptable:
 
-1. **Bound the edge with something visible from the scene** — a building wall, a
-   river, a fence, a tree line, or the map's own edge. The player can then see why
-   they cannot pass, and the collision has a cause.
-2. **Make the region flush with a real boundary.** A terrace that runs to the map
-   edge has no north edge to explain. This is what ElevationLab does.
-3. **Move the footprint** so the exposed edges face something already impassable.
-
-What is **not** acceptable is shipping the invisible wall and calling it done, or
-papering over it by removing the collision. Removing it makes the plateau reachable
-from every side, which is the defect this whole system exists to remove.
-
-Do not improvise a vertical face from rotated stone tiles unless you also verify it
-in a capture: a rotated horizontal course reads as a mistake far more often than as
-a cliff.
+- shipping the invisible wall and calling it done;
+- removing the collision, which makes the plateau reachable from every side and
+  undoes the entire model;
+- improvising a vertical cliff from rotated stone tiles. A rotated horizontal course
+  reads as a mistake far more often than as a face. If you try it, verify it in a
+  capture before believing it.
 
 ## 10. Visual QA checklist
 

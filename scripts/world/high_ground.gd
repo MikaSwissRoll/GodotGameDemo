@@ -69,6 +69,7 @@ static func construct(
     )
     var surface := _paint_surface(parent, region_name, texture, region)
     _paint_cliff_faces(parent, region_name, texture, region)
+    _paint_boundary_faces(parent, region_name, texture, region)
     _paint_ramp_treads(parent, region_name, texture, ramps)
     _build_boundary(parent, region_name, region, ramps)
     return surface
@@ -173,6 +174,59 @@ static func _paint_ramp_treads(
                     Vector2i(_column_for(tread, local_x, ramp.size.x), ROW_LIP))
 
 
+## The north, east and west edges, drawn as a retaining wall.
+##
+## The tileset's stone face is a HORIZONTAL course, so the south edge is the only one
+## it can render as a cliff. The other three still need collision - a cliff is a
+## boundary on every side - and collision with nothing drawn under it is an invisible
+## wall, which is the one thing the grammar forbids outright: it looks walkable and is
+## not.
+##
+## The fix is not to remove the collision, which would make the plateau reachable from
+## every side and undo the whole model. It is to draw what is already there: the same
+## stone, laid along the low-side band the collision already occupies, which reads as
+## a retaining wall holding the terrace up. It uses the base course rather than the
+## top course, because the top course carries a grass overhang that only makes sense
+## on a downward-facing drop.
+static func _paint_boundary_faces(
+    parent: Node,
+    region_name: String,
+    texture: Texture2D,
+    region: Rect2i
+) -> void:
+    var first_col := region.position.x
+    var last_col := region.position.x + region.size.x
+    var first_row := region.position.y
+    var last_row := region.position.y + region.size.y
+
+    var tiles: Array[Vector2i] = []
+    var columns: Array[int] = []
+
+    # North band.
+    for col in range(first_col, last_col):
+        var tile := Vector2i(col, first_row - 1)
+        if _edge_is_solid(tile):
+            tiles.append(tile)
+            columns.append(col - first_col)
+    # West and east bands.
+    for row in range(first_row, last_row):
+        for band_col in [first_col - 1, last_col]:
+            var tile := Vector2i(band_col, row)
+            if _edge_is_solid(tile):
+                tiles.append(tile)
+                columns.append(-1)
+
+    if tiles.is_empty():
+        return
+    var layer := ENV._new_tile_layer(parent, region_name + "Retaining", texture, -17)
+    for index in tiles.size():
+        var tile := tiles[index]
+        var column := ATLAS_MIDDLE
+        if columns[index] >= 0:
+            column = _column_for(tile, columns[index], region.size.x)
+        layer.set_cell(tile, 0, Vector2i(column, ROW_FACE_BOTTOM))
+
+
 ## Movement collision for every edge, split around the ramp openings.
 ##
 ## Two rules make this agree with the drawing:
@@ -199,26 +253,13 @@ static func _build_boundary(parent: Node, region_name: String, region: Rect2i, r
         var row := last_row + face_row
         _wall_span_x(parent, first_col, last_col, float(row) * tile + tile * 0.5, tile, row)
 
-    # North, east and west. The tileset has no vertical cliff face, so these walls
-    # have nothing drawn under them. Warn loudly: real collision with no visible drop
-    # is the "looks walkable but is blocked" failure, and it is far cheaper to catch
-    # here than in a screenshot.
+    # North, east and west. These bands are painted as a retaining wall by
+    # `_paint_boundary_faces`, so the collision here has something visible under it
+    # rather than being an invisible wall.
     var north_row := first_row - 1
-    var hidden := _wall_span_x(parent, first_col, last_col,
-        float(first_row) * tile - tile * 0.5, tile, north_row)
-    hidden += _wall_span_y(parent, first_row, last_row,
-        float(first_col) * tile - tile * 0.5, tile, first_col - 1)
-    hidden += _wall_span_y(parent, first_row, last_row,
-        float(last_col) * tile + tile * 0.5, tile, last_col)
-    if hidden > 0:
-        push_warning(
-            "HighGround '%s': %d boundary wall(s) on the north/east/west edges have " %
-            [region_name, hidden] +
-            "no drawn cliff face, because the tileset has no vertical drop art. Those " +
-            "edges will read as walkable while being blocked. Bound them with something " +
-            "visible from the scene - buildings, water, a fence, or the map edge - or " +
-            "move the region so it is flush with one. See " +
-            "docs/environment/HIGHGROUND_TILE_GRAMMAR.md section 9.")
+    _wall_span_x(parent, first_col, last_col, float(first_row) * tile - tile * 0.5, tile, north_row)
+    _wall_span_y(parent, first_row, last_row, float(first_col) * tile - tile * 0.5, tile, first_col - 1)
+    _wall_span_y(parent, first_row, last_row, float(last_col) * tile + tile * 0.5, tile, last_col)
 
 
 ## A LOW-side tile is solid unless a ramp opens it or it is itself high ground.
