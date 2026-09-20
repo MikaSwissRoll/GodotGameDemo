@@ -54,20 +54,48 @@ by construction. `scripts/systems/party.gd` holds the table.
 | 6 | 32 | player hurtbox |
 | 7 | 64 | enemy attack hitbox |
 | 8 | 128 | **companion hurtbox** |
+| 9 | 256 | **NPC body** (Guard, Merchant, recruit) |
+| 10 | 512 | **companion body** |
 
 - A companion's attack hitbox masks **16 only**, so it can reach enemy hurtboxes and
   nothing else. It cannot damage the player, the Guard, the Merchant, or itself.
 - A companion's hurtbox is on **128**, which the player's attack mask (16) does not
   include, so the player cannot hit their own companion.
-- Enemy attack sources were widened to see companions: the melee hitbox mask went
-  `32 -> 160` (player hurtbox + companion hurtbox) and the arrow's `34 -> 162`
+- Enemy attack sources were widened to see companions: the melee hitbox mask is
+  **160** (player hurtbox + companion hurtbox) and the arrow's is **162**
   (world + both hurtboxes).
-- The companion body masks **only world geometry**, so it can never physically shove
-  the player or block a doorway.
+- NPC bodies are on their own layer **256** rather than the world layer or the
+  player's layer, so characters can be blocked by a person without making every
+  character mutually collidable.
+- A companion's body is on **512**, deliberately *not* the player's layer 1: on
+  layer 1 enemies would treat it as a solid obstacle and shove it around the map.
+  Its mask is **258** (world + NPC bodies), so it is blocked by scenery and people
+  but never pushes the player.
+
+The `Enemy` and `ArcherEnemy` classes share **no base class**. Everything that asks
+"is this a valid target" goes through `Party.is_hostile()` / `Party.hostile_health()`,
+which cover both — see the bug list below for why that matters.
 
 `Party.is_party_member()` decides who the hostile side may target: the `Player`, plus
 anything implementing `is_party_member()`. Friendly NPCs are deliberately **not**
 party members, so they stay out of enemy targeting.
+
+The Guard, the Merchant and the recruit are `Area2D`s for interaction, so a solid
+`StaticBody2D` sits alongside each on layer 256. Without it the player and the
+enemies walk straight through a person. The interaction radius is 78px, far larger
+than the body, so being blocked never prevents talking to them.
+
+## Gold drops
+
+| Enemy | Drop |
+| --- | --- |
+| Melee bandit | 1 |
+| **Archer** | **3** |
+
+The amount is bound per enemy when its `defeated` signal is connected, not looked up
+from a shared "last defeated" field: two enemies can die in the same frame, and a
+shared field would pay the wrong amount to one of them. An archer pays more because
+it is the harder kill, shooting back from range.
 
 ## Follower states
 
@@ -260,6 +288,22 @@ Recorded because each cost real time and would repeat:
 6. **A downed companion cannot revive while enemies live**, by design, which made a
    test look like a failure: it asked a downed companion to land a killing blow.
    Worth knowing when writing anything that depends on the companion acting.
+7. **The companion ignored every archer.** `ArcherEnemy` is a `CharacterBody2D` with
+   its own class, sharing no base with `Enemy`. Targeting read `Enemy.health`
+   directly, so archers were silently excluded — and in free play a third of each
+   group is archers. Because the companion still fought melee bandits, the earlier
+   tests passed: they only ever paired it with a melee enemy. Everything now goes
+   through `Party.is_hostile()` / `Party.hostile_health()`.
+8. **An arrow could not touch a companion.** The arrow's mask was `34` — world plus
+   the *player's* hurtbox — so it simply had no overlap with the companion hurtbox
+   on layer 128. Adding companion support to `arrow.gd`'s hit handler was not
+   enough, because the handler is never reached for a body the mask cannot see. The
+   mask is now `162`. When widening a faction, change the **mask** as well as the
+   handler, and assert the mask on the instantiated node.
+9. **A test that put the enemy on top of the companion proved nothing.** It showed a
+   swing could land, but never that the companion would seek a fight. The real bug
+   above hid behind it for a whole round. Pair the unit with the situation it will
+   actually meet, and let it act rather than staging the outcome.
 
 ## See also
 

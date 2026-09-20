@@ -319,22 +319,23 @@ func _consider_combat() -> void:
 
 ## Nearest living hostile that is close enough to the follower and, more
 ## importantly, close enough to the player to count as assisting rather than
-## wandering off.
+## wandering off. Uses `Party.hostile_health` so both hostile families count:
+## `ArcherEnemy` is a separate class from `Enemy`, so reading `Enemy.health`
+## directly left every archer untargetable.
 func _pick_target() -> Node2D:
 	var best: Node2D = null
 	var best_distance := detect_radius
 	for node in get_tree().get_nodes_in_group("bandits"):
 		if not Party.is_hostile(node):
 			continue
-		var enemy := node as Enemy
-		if enemy.health <= 0:
+		if Party.hostile_health(node) <= 0:
 			continue
-		if enemy.global_position.distance_to(_player.global_position) > assist_radius:
+		if (node as Node2D).global_position.distance_to(_player.global_position) > assist_radius:
 			continue
-		var distance := global_position.distance_to(enemy.global_position)
+		var distance := global_position.distance_to((node as Node2D).global_position)
 		if distance < best_distance:
 			best_distance = distance
-			best = enemy
+			best = node
 	return best
 
 
@@ -343,7 +344,7 @@ func _is_target_usable(candidate: Node2D) -> bool:
 		return false
 	if not candidate.has_method("take_damage"):
 		return false
-	if (candidate as Enemy).health <= 0:
+	if Party.hostile_health(candidate) <= 0:
 		return false
 	return global_position.distance_to(candidate.global_position) <= leash_distance
 
@@ -507,7 +508,7 @@ func _animate() -> void:
 func _count_alive_enemies() -> int:
 	var total := 0
 	for node in get_tree().get_nodes_in_group("bandits"):
-		if Party.is_hostile(node) and (node as Enemy).health > 0:
+		if Party.is_hostile(node) and Party.hostile_health(node) > 0:
 			total += 1
 	return total
 

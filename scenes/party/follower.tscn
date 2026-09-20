@@ -9,8 +9,8 @@ radius = 16.0
 size = Vector2(58, 52)
 
 [node name="Follower" type="CharacterBody2D"]
-collision_layer = 1
-collision_mask = 2
+collision_layer = 512
+collision_mask = 258
 script = ExtResource("1_script")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]

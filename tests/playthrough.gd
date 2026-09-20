@@ -59,8 +59,14 @@ func _run() -> void:
         ClassicProgression.Phase.MAIN_QUEST
     (game.get_node("GameUI") as GameUI).start_requested.emit()
 
-    if not await _walk_to(guard.global_position + Vector2(-38, 0), 250):
+    # The Guard is now solid, so the player stops against his body rather than
+    # reaching a point inside it. Approach from outside his capsule and confirm
+    # the interaction range is satisfied instead of demanding an exact position.
+    if not await _walk_to(guard.global_position + Vector2(-52, 0), 250):
         _fail("Could not reach the Guard")
+        return
+    if not guard.player_nearby:
+        _fail("Stood next to the Guard but he did not register the player")
         return
     _talk()
     if quest.state != QuestManager.QuestState.ACTIVE:
@@ -100,8 +106,11 @@ func _run() -> void:
         _fail("Quest did not become ready")
         return
     var home_route: Array[Vector2] = RETURN_ROUTE.duplicate()
-    home_route.append(guard.global_position + Vector2(-38, 0))
+    home_route.append(guard.global_position + Vector2(-52, 0))
     if not await _walk_route(home_route, "Could not return to the Guard"):
+        return
+    if not guard.player_nearby:
+        _fail("Returned to the Guard but he did not register the player")
         return
     _talk()
     if quest.state != QuestManager.QuestState.COMPLETED:

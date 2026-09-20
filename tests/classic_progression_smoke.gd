@@ -188,7 +188,7 @@ func _check_main_quest_unchanged() -> void:
     # each kill drops gold via `call_deferred`, so waiting for the state would race
     # the pickup and prove nothing.
     for index in 5:
-        game._on_enemy_defeated(player.global_position)
+        game._on_enemy_defeated(player.global_position, 1)
     await _wait(2)
     assert(quest.bandits_defeated == 5, "Kills did not count: %d" % quest.bandits_defeated)
     # One objective alone must not finish it. Drive the counters straight to the

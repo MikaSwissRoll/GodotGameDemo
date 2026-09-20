@@ -1,9 +1,13 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/merchant.gd" id="1_script"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_interaction"]
 radius = 78.0
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_body"]
+radius = 16.0
+height = 46.0
 
 [node name="Merchant" type="Area2D"]
 collision_layer = 0
@@ -24,3 +28,10 @@ offset_bottom = -89.0
 horizontal_alignment = 1
 text = "E 交易"
 
+[node name="Body" type="StaticBody2D" parent="."]
+collision_layer = 256
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Body"]
+position = Vector2(0, -22)
+shape = SubResource("CapsuleShape2D_body")

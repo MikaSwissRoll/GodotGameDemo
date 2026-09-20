@@ -158,9 +158,16 @@ func _check_following() -> void:
     assert(on_station < companion.catch_up_distance,
         "The companion settled %.1fpx away, outside its catch-up range" % on_station)
 
-    # It must not shove the player: no physical contact response at all.
-    assert(companion.collision_mask == PARTY.LAYER_WORLD,
-        "The companion masks more than world geometry, so it can push the player")
+    # It must not shove the player. The mask deliberately includes other
+    # character bodies (the Guard, the Merchant, the recruit), so it cannot be
+    # "world only"; the property that matters is that it does not include the
+    # player's own body layer, which is what would make the two push each other.
+    assert(companion.collision_mask & PARTY.LAYER_WORLD,
+        "The companion does not collide with world geometry")
+    assert(not (companion.collision_mask & 1),
+        "The companion masks the player body layer, so it can shove the player")
+    assert(not (companion.collision_mask & PARTY.LAYER_ENEMY_BODY),
+        "The companion masks the enemy body layer, so it can shove enemies")
     print("  follows: %.0fpx behind, settles without jitter, cannot push the player" % separation)
 
 

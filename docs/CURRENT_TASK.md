@@ -96,10 +96,41 @@ ranged companions, companion quests, and any procedural or LLM-driven party AI.
 
 ## Result
 
-- 15/15 suites pass.
+- 17/17 suites pass.
 - Visual QA confirms the hire modal renders in style, the companion sits behind and
   to one side of the player without merging, and combat shows both fighters landing
   hits.
 - See [Follower System](../systems/FOLLOWER_SYSTEM.md) for the design, the
-  extension points for future classes, and the four implementation problems worth
+  extension points for future classes, and the implementation problems worth
   remembering.
+
+## Follow-up round: reported bugs and collision
+
+Three faults were reported after the first pass, and all three were real.
+
+1. **The companion ignored archers entirely.** `ArcherEnemy` shares no base class
+   with `Enemy`, and target selection read `Enemy.health` directly, so every archer
+   was invisible to it — and in free play a third of each group is archers. All
+   target queries now go through `Party.is_hostile()` / `Party.hostile_health()`.
+2. **Arrows could not damage a companion.** The arrow's mask was `34`, world plus
+   the player's hurtbox, so it had no overlap with the companion hurtbox on layer
+   128. Widening the hit handler alone could never have worked. Mask is now `162`.
+3. **The tests shared the same blind spot.** They only ever paired the companion
+   with a melee enemy that had been placed on top of it, which proved a swing could
+   land but never that the companion would seek a fight.
+
+Added as requested:
+
+- **Archers drop 3 gold** (melee bandits still drop 1). The amount is bound per
+  enemy at signal-connection time rather than read from a shared "last defeated"
+  field, because two enemies can die in the same frame.
+- **Solid bodies for NPCs and enemies.** The Guard, the Merchant and the recruit
+  were `Area2D`-only, so the player and enemies walked straight through them. Each
+  now has a `StaticBody2D` on a new NPC body layer (256), separate from the world
+  and player layers so characters are not made mutually collidable. The companion's
+  own body moved to layer 512 so enemies cannot shove it, and its mask is 258
+  (world + NPC bodies).
+
+New suite `tests/companion_archer_smoke.gd` covers all of the above, including a
+proven collision clamp: a 90px push into the Guard is stopped 60px → 30px from his
+centre, which is exactly the two capsule radii.

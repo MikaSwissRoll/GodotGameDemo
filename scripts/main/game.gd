@@ -29,6 +29,9 @@ const FOLLOWER_SCENE := preload("res://scenes/party/follower.tscn")
 ## What a companion costs to hire. One price, one currency: the same `gold` the
 ## Merchant spends, so there is no second purse to keep in step.
 const COMPANION_PRICE := 25
+## Gold dropped per kill. Archers pay more because they are the harder target.
+const BANDIT_GOLD_DROP := 1
+const ARCHER_GOLD_DROP := 3
 
 @onready var player: Player = $Player
 @onready var quest: QuestManager = $QuestManager
@@ -59,7 +62,7 @@ func _ready() -> void:
     player.camera.limit_bottom = 1500
 
     for enemy in get_tree().get_nodes_in_group("bandits"):
-        enemy.defeated.connect(_on_enemy_defeated)
+        _watch_enemy(enemy)
 
     player.health_changed.connect(ui.set_health)
     player.stamina_changed.connect(ui.set_stamina)
@@ -322,16 +325,37 @@ func _use_stamina_potion() -> void:
 ## Only an active main quest counts kills and gold. Free-play respawns and anything
 ## the player killed or picked up before the quest started must not advance its
 ## counters, or the quest could arrive already finished.
-func _on_enemy_defeated(at: Vector2) -> void:
+##
+## The drop is bound per enemy at connection time rather than looked up from a
+## shared "last defeated" field: two enemies can die in the same frame, and a shared
+## field would pay the wrong amount to one of them.
+func _on_enemy_defeated(at: Vector2, drop: int) -> void:
     if quest.state == QuestManager.QuestState.ACTIVE:
         quest.record_bandit_defeated()
-    call_deferred("_spawn_gold", at)
+    call_deferred("_spawn_gold", at, drop)
 
 
-func _spawn_gold(at: Vector2) -> void:
+func _gold_for(enemy: Node) -> int:
+    # An archer is the harder kill: it shoots back from range, so it pays more than
+    # a melee bandit for the risk of closing on it.
+    if enemy is ArcherEnemy:
+        return ARCHER_GOLD_DROP
+    return BANDIT_GOLD_DROP
+
+
+## Connects one enemy's defeat to the drop its type is worth.
+func _watch_enemy(enemy: Node) -> void:
+    if enemy == null or not enemy.has_signal("defeated"):
+        return
+    var drop := _gold_for(enemy)
+    enemy.defeated.connect(func(at: Vector2) -> void: _on_enemy_defeated(at, drop))
+
+
+func _spawn_gold(at: Vector2, amount: int) -> void:
     var pickup := GOLD_SCENE.instantiate() as GoldPickup
     add_child(pickup)
     pickup.global_position = at
+    pickup.value = maxi(1, amount)
     pickup.collected.connect(_on_gold_collected)
 
 
@@ -531,8 +555,7 @@ func _respawn_free_play_group() -> void:
         var enemy := scene.instantiate() as Node2D
         add_child(enemy)
         enemy.global_position = point
-        if enemy.has_signal("defeated"):
-            enemy.defeated.connect(_on_enemy_defeated)
+        _watch_enemy(enemy)
         _free_play_enemies.append(enemy)
 
 
