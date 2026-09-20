@@ -252,6 +252,14 @@ Recorded because each cost real time and would repeat:
    helper with an `await` resumed after later sections had advanced the phase, so it
    failed against a state it was never meant to test. Keep synchronous checks
    synchronous.
+5. **The companion swung without facing its target.** The hitbox is offset in front
+   of the companion, so attacking while still facing the last travel direction put
+   the blow past the target's shoulder. It closed to range, entered `ATTACK`, and
+   missed every time — the tests showed a valid target in range with the enemy's
+   health never dropping. `_begin_attack()` now turns to face the target first.
+6. **A downed companion cannot revive while enemies live**, by design, which made a
+   test look like a failure: it asked a downed companion to land a killing blow.
+   Worth knowing when writing anything that depends on the companion acting.
 
 ## See also
 

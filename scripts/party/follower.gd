@@ -231,6 +231,11 @@ func _process_approach(delta: float) -> void:
 func _begin_attack() -> void:
 	if _attack_cooldown_left > 0.0 or not _is_target_usable(target):
 		return
+	# Turn to face the target first. The swing's hitbox is offset in front of the
+	# companion, so attacking while still facing the last travel direction puts the
+	# blow past the target's shoulder and it misses entirely.
+	if target != null and is_instance_valid(target):
+		_face(target.global_position - global_position)
 	state = State.ATTACK
 	_attack_phase = attack_windup + attack_active
 	_attack_cooldown_left = attack_cooldown
