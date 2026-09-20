@@ -92,11 +92,16 @@ animation, telegraphs, color, camera shake, and floating text.
 ## Verification
 
 Godot 4.7.2 launches the default scene with no reported parser, runtime, or
-resource errors. Headless tests cover run flow, all six upgrade effects,
-guard direction, purchases, elite victory, death, restart, and the classic
-mode entry. An automated playthrough uses actual movement, attacks, and health
-potions to clear the run. The original story smoke, collision, feature, and
-full-route tests also pass. The menu, combat, reward, elite arena, village, and enemy camp were rendered
-and visually inspected. A live MCP debug launch reports no engine errors.
+resource errors. The menu, combat, reward, elite arena, village, and enemy camp
+were rendered and visually inspected, and a live MCP debug launch reports no
+engine errors.
+
+**The automated test suite is frozen and `tests/` is empty.** The project used to
+carry 18 headless suites covering run flow, the upgrade effects, guard direction,
+purchases, elite victory, death, restart, the classic progression and the
+companion; they were removed deliberately. Verification is now manual: run the
+project, take a rendered capture with `tools/capture_visual_qa.ps1`, and drive the
+affected flow by hand. See `docs/TEST_WORKFLOW.md` for what the suite taught us and
+`docs/CURRENT_TASK.md` for the state it was frozen in.
 
 

@@ -110,6 +110,10 @@ classic game instance and a separate overview camera. `town_title.gd` owns the
 protected transition; `town_menu.gd` owns the side menu. The classic world builds
 its buildings and ambient residents through `starting_town.gd`.
 
-Run `tests/town_title_smoke.gd` for real viewport mouse dispatch, paused player
-and enemy isolation, ambient activity, continuous classic handoff, pause,
-merchant/guard interactions, restart, and both mode-return routes.
+The title flow used to be covered by `town_title_smoke`, which checked real
+viewport mouse dispatch, paused player and enemy isolation, ambient activity,
+continuous classic handoff, pause, merchant/guard interactions, restart, and both
+mode-return routes. **That suite is gone: the test suite is frozen and `tests/` is
+empty.** Those checks are now manual — open the title screen in a build and
+operate it, using the `main_menu` and `classic_entry` capture targets for the
+rendered half. See `TEST_WORKFLOW.md`.

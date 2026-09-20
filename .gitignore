@@ -4,6 +4,10 @@
 /.codex/godot-mcp/node_modules/
 /screenshots/visual_qa/*
 
+# Redirected stdout/stderr from a run is a diagnostic, not a source.
+# test-collision.log was committed by accident before this rule existed.
+/*.log
+
 # Tiny Swords (Pixel Frog) assets are third-party and are NOT licensed for
 # redistribution. Keep them out of the repository; supply them locally.
 /asset/

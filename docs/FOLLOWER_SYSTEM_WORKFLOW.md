@@ -1,5 +1,12 @@
 # Follower System Workflow
 
+> **The automated test suite is frozen.** `tests/` is empty and there is no runner.
+> Every `*_smoke` suite named in this document — including the three companion
+> suites, `elevation_smoke` and `free_play_spawn_smoke` — **no longer exists**, and
+> any step below that says to run one now means "reproduce it by hand in a running
+> build". The workflow, invariants and failure signatures are all still valid; only
+> the verification method changed. See [`TEST_WORKFLOW.md`](TEST_WORKFLOW.md).
+
 ## Purpose
 
 How to add, modify, and debug recruitable companions in this project without
@@ -36,7 +43,7 @@ code, not recalled.
 | Free-play gating | `scripts/systems/classic_progression.gd` |
 | Enemy-side targeting | `scripts/enemies/enemy.gd`, `scripts/enemies/archer.gd` |
 | Arrow damage | `scripts/enemies/arrow.gd` |
-| Contract tests | `tests/companion_smoke.gd`, `companion_integration_smoke.gd`, `companion_archer_smoke.gd` |
+| Contract tests | **Frozen and deleted.** The contract was carried by `companion_smoke`, `companion_integration_smoke` and `companion_archer_smoke`; see [`TEST_WORKFLOW.md`](TEST_WORKFLOW.md) |
 
 ### Recruitment
 
@@ -761,20 +768,23 @@ collision masks, which are load-bearing for unrelated features.
 
 1. **Read the invariants table above first.** Most regressions here are a violated
    invariant, not a missing feature.
-2. **Reproduce before changing.** Write the failing assertion first if the test suite
-   does not already cover it. Every bug in this document that was understood quickly
-   was first reduced to a failing check.
+2. **Reproduce before changing.** Reduce the bug to a reliable manual reproduction
+   first — a fixed position, a fixed enemy, a fixed order of actions. Every bug in
+   this document that was understood quickly was first reduced to a failing check;
+   with no suite, the reproduction *is* the check.
 3. **Classify before tuning.** Decide whether the fault is in **state**, **target
    identity**, **target position**, **faction**, **collision**, or **presentation**.
    Tuning a threshold is only valid once the state transition is proven correct.
 4. **Change one layer.** If the change is to targeting, do not also retune movement in
    the same step; you will not know which one fixed or broke it.
-5. **Re-run the three companion suites plus `elevation_smoke` and
-   `free_play_spawn_smoke`.** Enemy targeting and the `bandits` group are shared.
-6. **If a bug is found, add the assertion that catches it**, in the suite whose
-   situation matches. Then check whether the *other* hostile family, the *other*
-   companion state, and the *other* spawn path have the same fault — Problems 2, 4, 5
-   and 6 were all one fault present in more than one place.
+5. **Re-check the shared surfaces by hand.** Enemy targeting and the `bandits` group
+   are shared, so after any follower change also watch a melee enemy and an archer
+   pick their target in a running build — the same fault usually exists in both
+   hostile families.
+6. **If a bug is found, record how to catch it.** Note the situation that exposes it —
+   which enemy, which distance, which side — so the next person can reproduce it
+   without rediscovering the setup. Problems 2, 4, 5 and 6 were all one fault present
+   in more than one place.
 
 ---
 
@@ -873,32 +883,36 @@ kill.
 
 ---
 
-## Runtime Testing Strategy
+## Runtime Validation Strategy
 
-Three suites already exist. Extend them rather than adding a fourth by reflex.
+**The suites are frozen and deleted.** What follows is what they used to answer,
+kept as a checklist: these are the situations a companion change has to be watched
+in, by hand, in a running Classic Mode build. Read it as "go and look at this",
+not "go and run this".
 
-| Suite | Answers |
+| Formerly a suite | The situation to reproduce by hand |
 | --- | --- |
-| `tests/companion_smoke.gd` | recruitment, gating, gold, following, faction, combat, downed |
-| `tests/companion_integration_smoke.gd` | enemy targeting, enemy damage, kill → gold, player death, restart |
-| `tests/companion_archer_smoke.gd` | archers targetable, arrows hurt companions, spawned enemies, NPC bodies, blocking clamps |
-| `tests/elevation_smoke.gd` | enemies respect cliff boundaries |
+| `companion_smoke` | recruitment, gating, gold, following, faction, combat, downed |
+| `companion_integration_smoke` | enemy targeting, enemy damage, kill → gold, player death, restart |
+| `companion_archer_smoke` | archers targetable, arrows hurt companions, spawned enemies, NPC bodies, blocking clamps |
+| `elevation_smoke` | enemies respect cliff boundaries |
 
-Also load-bearing for companion work: `free_play_spawn_smoke` (group membership, spawn
-placement) and `classic_progression_smoke` (quest counters).
+Also load-bearing for companion work: free-play group membership and spawn
+placement, and the quest counters behind them.
 
 ### Rules that came out of this work
 
 - **Stage the situation, not the outcome.** Put the enemy near the player and let the
-  companion decide. A test that places the enemy on the companion proves only that a
-  swing can land.
-- **Assert on the effect.** Damage dealt, health changed, node freed, group membership
-  — not state enums or distances that merely imply them.
-- **Assert the setup too.** A misplaced actor makes an assertion true for the wrong
-  reason, silently.
-- **Drill through the real path.** Call the actual handler, emit the actual signal, or
-  drive the actual node. `companion_smoke` drives signals and handlers rather than
-  restating their rules.
+  companion decide. Placing the enemy on the companion proves only that a swing can
+  land.
+- **Judge the effect.** Damage dealt, health changed, node freed, group membership —
+  not state enums or distances that merely imply them.
+- **Check the setup too.** A misplaced actor makes a claim true for the wrong reason,
+  silently. The old elevation suite twice "proved" a climb because the actors had been
+  placed inside the cliff they were meant to be beside.
+- **Drill through the real path.** Drive the actual signal or handler rather than
+  restating its rule in the check, or the check will keep passing after the rule
+  changes.
 - **When a test fails, check the test before the code.** Four of this project's
   "failures" were the test's fault: an enemy placed adjacent during a following check,
   a player a hair above the cliff line, an enemy spawned inside a wall, and a helper

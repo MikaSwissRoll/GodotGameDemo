@@ -134,6 +134,11 @@ The existing project runs unchanged. Verified:
 | `new_features_smoke.gd` | guard, directional block, stamina costs, merchant purchases, potions, Chinese HUD |
 | `upgrade_effects_smoke.gd` | counter, guard efficiency, heavy attack, kill refund, swift dash, dash cleave |
 
+> **Historical record.** These harnesses, and every suite added after them, were
+> later frozen and deleted — `tests/` is now empty. The table describes what the
+> migration verified at the time, not something that can be run today. See
+> [`TEST_WORKFLOW.md`](TEST_WORKFLOW.md).
+
 Two harmless environment errors appear in Godot stderr on every run: failure to
 rotate `user://logs/*.log` and failure to read the root certificate store.
 These are artifacts of the DSH workspace-write sandbox, which permits writes

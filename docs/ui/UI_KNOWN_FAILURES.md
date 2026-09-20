@@ -429,10 +429,13 @@ every significant UI edit even when only rendered pixels changed.
 **Prevention**
 
 - Stage the affected visual state directly with a deterministic capture target.
-- Add a focused interaction or integration test only when its contract changed.
-- Reserve full playthroughs for progression changes, milestones, and release
+- Operate the affected interaction by hand when its contract changed.
+- Reserve a hand-played full pass for progression changes, milestones, and release
   validation.
-- Do not use unrelated flaky tests as a visual quality gate.
+- Do not treat an unrelated failure as a visual quality gate.
+
+*The suite this lesson came from has since been frozen and deleted; see
+`../TEST_WORKFLOW.md`. The lesson still holds for hand verification.*
 
 **Validation**
 
@@ -497,15 +500,15 @@ way to capture it.
   `tools/capture_visual_qa.ps1` in the same change.
 - Make the visual target deterministic: use fixed data, enter the state directly,
   wait for layout, and freeze noisy motion.
-- If the transition into the state changed, test that transition separately with
-  the smallest relevant smoke test. Do not make repeated visual capture depend
-  on completing unrelated gameplay.
+- If the transition into the state changed, exercise that transition by hand in a
+  running build. Do not make repeated visual capture depend on completing
+  unrelated gameplay.
 
 **Validation**
 
 Every state you touched must be reachable by name in the capture harness and
-produce a stable full-viewport image. When its transition changed, the matching
-focused flow test must also pass.
+produce a stable full-viewport image. When its transition changed, the transition
+must also have been opened and observed by hand.
 
 *`shop_overlay` and `result_dead` added in `75c9734`; `reward_overlay` added
 later, closing the last gap.*

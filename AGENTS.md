@@ -32,13 +32,35 @@ focused on the current vertical slice.
   gameplay changes. If a required MCP capability is unavailable, fall back to
   the local Godot CLI or other appropriate project tools.
 
+## Tests — the suite is FROZEN
+
+**The automated test suite is frozen. Do not run it, do not add to it, and do not
+wait on it.** `tests/` was emptied deliberately and no longer exists as a
+harness: there is no runner, no suite, and nothing to invoke. Any command of the
+form `.\tests\run_tests.ps1 ...` will simply fail.
+
+Do not restore the old suites from Git history on your own initiative. If testing
+is ever wanted again, that is a decision for the user, not a step in a task.
+
+Verify changes the way the rest of this file describes instead:
+
+- read the code you changed and the code that calls it;
+- run the project and watch the parser, runtime, and resource output;
+- for visual, UI, environment and scene work, take a rendered capture and inspect
+  the actual pixels (`tools/capture_visual_qa.ps1`, `docs/visual_qa.md`);
+- drive the affected flow by hand in a running build and say what you saw.
+
+Never claim a change is verified because tests pass — there are no tests.
+`docs/TEST_WORKFLOW.md` keeps what the suite taught us; read it before writing
+any new test.
+
 ## UI Development
 
 For significant UI, HUD, menu, dialogue, shop, or interface work, read and
 apply:
 
 - `docs/art/UI_VISUAL_RULES.md` for visual language and hierarchy;
-- `docs/ui/UI_WORKFLOW.md` for creation, repair, capture, and test selection;
+- `docs/ui/UI_WORKFLOW.md` for creation, repair, capture, and verification;
 - `docs/ui/UI_KNOWN_FAILURES.md` for project-specific failure diagnosis; and
 - `docs/ui/UI_ASSET_GUIDE.md` for measured reusable assets.
 
@@ -62,15 +84,14 @@ Inspect
 -> Inspect rendered pixels
 -> Fix the measured cause
 -> Recapture and compare
--> Run the smallest affected regression
+-> Re-run the affected flow by hand
 ```
 
 For visual-only changes, a deterministic target capture and visual comparison
 are the default verification. Do not play through the whole game to reach a UI
-state. Add a focused UI smoke test when input, focus, signals, data binding,
-pause state, purchases, modal visibility, or scene navigation changes. Run a
-full playthrough only when broad progression changed or for milestone and
-release validation.
+state. There is no test suite to lean on, so verification is a fresh rendered
+capture plus driving the affected interaction by hand: menus, focus, modal
+visibility, purchases, and scene navigation each have to be opened and looked at.
 
 Capture the full viewport for context and add a crop only for measurement.
 Check affected normal, focus, pressed, disabled, empty, full, long-Chinese-text,
@@ -78,8 +99,8 @@ and affordability states when relevant. Shared components require isolated
 component coverage and captures of materially affected screens.
 
 A UI task is not complete because it loads or logs no errors. It requires a
-fresh rendered capture, a concrete visual review, and the smallest relevant
-functional test. Keep temporary screenshots out of Git unless they are useful
+fresh rendered capture, a concrete visual review, and a hand-driven check of the
+affected flow. Keep temporary screenshots out of Git unless they are useful
 long-term references.
 
 ## Companion / Follower Systems
@@ -101,16 +122,18 @@ Route every "is this a valid target" question through
 base (`Enemy` and `ArcherEnemy`), so a type test or a direct `.health` read will
 silently exclude one of them.
 
-For substantial follower changes, validate incrementally with the project's
-suites rather than implementing recruitment, following, combat, targeting, and
-recovery before the first runtime check:
+For substantial follower changes, validate incrementally rather than implementing
+recruitment, following, combat, targeting, and recovery before the first runtime
+check. With the suite frozen, "validate" means build one layer and go watch it in
+a running game:
 
 ```text
 Inspect the foundation and the actual assets
 -> Decide common vs class-specific behavior
 -> Implement one layer
--> Run the companion suites (companion_smoke, companion_integration_smoke,
-   companion_archer_smoke) plus free_play_spawn_smoke and elevation_smoke
+-> Run the project and drive that one layer by hand in Classic Mode; there is no
+   companion suite to lean on, so watch the enemy targeting and the party state
+   live rather than assuming they still work
 -> Inspect a rendered capture for formation and combat readability
 -> Continue
 ```
@@ -214,7 +237,8 @@ When modifying an existing system:
 
 - identify affected existing behavior;
 - preserve unrelated working functionality; and
-- test relevant old behavior after implementation.
+- after implementing, exercise the affected old behavior by hand in the running
+  project, since nothing automated will catch a regression for you.
 
 A new feature is not complete if it breaks an existing working feature.
 
@@ -224,7 +248,7 @@ Do not declare a task complete until:
 
 - the requested player-facing behavior exists;
 - the project runs;
-- relevant gameplay and UI flows were tested;
+- relevant gameplay and UI flows were exercised in a running build and observed;
 - persistent parser and runtime errors are resolved;
 - affected existing features still work; and
 - important assumptions and known issues are documented.
@@ -236,7 +260,8 @@ After completing a task, report concisely:
 1. What was implemented
 2. Major files and scenes changed
 3. Important assumptions
-4. Tests performed
+4. How it was verified by hand — the test suite is frozen, so do not report a
+   test run; report what you ran in the project and what you observed
 5. Known issues, if any
 
 Do not provide a long tutorial unless requested.

@@ -384,6 +384,6 @@ Recorded because each cost real time and would repeat:
 
 - [UI visual rules](../art/UI_VISUAL_RULES.md) — the recruit dialogue follows the
   shared modal and Chinese typography rules.
-- [Test workflow](../TEST_WORKFLOW.md) — `tests/companion_smoke.gd` covers this
-  contract.
+- [Test workflow](../TEST_WORKFLOW.md) — the suite that used to cover this contract
+  is frozen and deleted; that document explains what replaced it.
 - [Current task](../CURRENT_TASK.md) — the implementation plan and assumptions.

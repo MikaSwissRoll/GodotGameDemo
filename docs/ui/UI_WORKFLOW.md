@@ -3,8 +3,10 @@
 ## Purpose
 
 This document defines how you create, repair, and verify UI in this project. It
-keeps visual review separate from interaction and gameplay regression, so each
-change gets the smallest reliable test instead of an unrelated full playthrough.
+keeps visual review separate from interaction and gameplay checks, so a rendered
+change is judged on its rendered evidence instead of on an unrelated playthrough.
+The automated test suite is frozen and `tests/` is empty, so every functional
+check below is done by hand in a running build.
 
 Use the companion documents for their specific responsibilities:
 
@@ -57,26 +59,29 @@ catch real defects.
 - Reuse measured project components and assets before creating another styling
   path.
 - Change one visual cause at a time, then recapture the same target.
-- Do not use a flaky or unrelated playthrough as evidence for a visual change.
+- Do not use a capture of an unrelated screen as evidence for a visual change.
 
-## Choose the test scope first
+## Choose the verification scope first
 
-Before editing, classify every contract the change can affect. Run the union of
-the matching rows after the visual loop.
+**The automated test suite is frozen and `tests/` is empty.** No row below can
+name a test to run; the evidence is captures and hand-driven checks. Read
+`docs/TEST_WORKFLOW.md` for why, and do not try to restore a suite.
+
+Before editing, classify every contract the change can affect, then collect the
+union of the matching rows after the visual loop.
 
 | Change scope | Required evidence |
 | --- | --- |
 | Color, spacing, font position, icon size, or decoration | Before and after captures of the affected state |
 | Hover, focus, pressed, selected, or disabled styling | Captures of the affected visual states |
 | Shared panel, bar, button, or `ActionRow` | Isolated component states plus captures of each materially affected screen |
-| Button input, focus order, keyboard navigation, or signals | Target capture plus the smallest UI interaction smoke test |
-| HUD value binding, affordability, inventory count, or translated text | Representative state captures plus the relevant data-binding smoke test |
-| Modal visibility, pause state, shop purchase, result flow, or scene navigation | Target capture plus the matching integration smoke test |
-| Broad gameplay progression, save behavior, or release readiness | Relevant integration tests and a full playthrough |
+| Button input, focus order, keyboard navigation, or signals | Target capture plus clicking and tabbing through the flow by hand in a running build |
+| HUD value binding, affordability, inventory count, or translated text | Representative state captures with the values actually changed in-game |
+| Modal visibility, pause state, shop purchase, result flow, or scene navigation | Target capture plus opening and closing the flow by hand |
+| Broad gameplay progression, save behavior, or release readiness | A full hand-played pass, from the title screen through the affected progression |
 
-Do not run ballistics, collision, enemy, or full-run suites for an unrelated
-visual-only edit. Run the full suite at milestones, before release, or when a
-shared gameplay contract actually changed.
+There is nothing to over-run any more, and nothing will catch a regression for
+you: an unobserved state is an unverified state.
 
 ## Prepare the task
 
@@ -268,29 +273,25 @@ Use this measurement procedure:
 Do not reuse an optical offset on another asset merely because the controls have
 the same logical size.
 
-## Run selective regression
+## Verify by hand
 
-Visual inspection and functional tests answer different questions. Use the
-smallest existing harness that covers the contract you changed.
+Visual inspection and functional checks answer different questions, and with the
+suite frozen only the first is automated. A rendered capture proves how something
+looks; it does not prove that pressing it does anything.
 
-Current examples include:
+For every UI behaviour the change touches, open it in a running build and operate
+it: click the button, tab through the focus order, buy the item, open and close the
+modal, walk through the scene transition. Then say in the task notes what you
+opened and what happened. There is no suite to delegate this to, and no pass/fail
+line to quote instead of looking.
 
-- `tests/smoke_game.gd` for classic menu, modal, and adventure UI flow;
-- `tests/roguelite_smoke.gd` for roguelite menu, pause, shop, reward, and result
-  flow; and
-- `tests/new_features_smoke.gd` for affected HUD translation or data bindings.
-
-Run playthrough suites when progression or navigation changed, or as a milestone
-gate. A known flaky playthrough must not gate an unrelated visual edit. If a
-relevant test fails, reproduce the failure before deciding it is unrelated.
-
-When you rename or remove a member used by a relevant test, update that test in
-the same change.
+`docs/visual_qa.md` documents the capture harness, which still works and is now
+the main automated evidence available.
 
 ## UI quality gate
 
 A UI task is complete when every applicable line below has evidence. Mark
-non-applicable items in the task notes rather than running unrelated tests.
+non-applicable items in the task notes rather than running unrelated checks.
 
 - [ ] The affected state has a deterministic capture target.
 - [ ] A fresh full-viewport screenshot was inspected.
@@ -302,7 +303,7 @@ non-applicable items in the task notes rather than running unrelated tests.
 - [ ] Pixel art remains sharp and keeps its intended proportions.
 - [ ] Relevant interaction states were inspected.
 - [ ] Shared-component callers affected by the change were checked.
-- [ ] The smallest relevant interaction or integration test passed.
+- [ ] The affected interaction was operated by hand and the result recorded.
 - [ ] No persistent parser, runtime, resource, or signal error remains.
 - [ ] Deliberate visual trade-offs and known limitations are recorded.
 
