@@ -3,6 +3,7 @@ extends CharacterBody2D
 
 const SPRITES := preload("res://scripts/systems/sprite_frames_factory.gd")
 const FEEDBACK := preload("res://scripts/systems/combat_feedback.gd")
+const UI := preload("res://scripts/ui/tiny_swords_ui.gd")
 const BLUE_WARRIOR := "res://asset/Units/Blue Units/Warrior/"
 
 signal health_changed(current: int, maximum: int)
@@ -56,6 +57,21 @@ signal died
 ## retaliation that would otherwise land while the player cannot act.
 @export var exhausted_break_grace: float = 0.45
 
+## Feedback shake of the character itself. The HUD shrinks the stamina bar on the
+## same thresholds, so warning reads as the character and the bar shuddering
+## together. Amplitude is in pixels and decays over the duration.
+@export var char_shake_warn: float = 3.0
+@export var char_shake_deep: float = 5.0
+@export var char_shake_denied: float = 4.0
+@export var char_shake_break: float = 7.0
+@export var char_shake_seconds: float = 0.22
+
+## The stamina state icon rides above and to the right of the character, so the
+## warning points at whoever it applies to. Offset is in the player's local space,
+## clear of the sprite's head.
+@export var state_icon_offset := Vector2(34.0, -74.0)
+@export var state_icon_hold: float = 0.55
+
 @export var attack_damage: int = 25
 @export var attack_cooldown: float = 0.5
 @export var dash_speed: float = 650.0
@@ -100,6 +116,13 @@ var _warn_deep_latch := false
 ## Test-only: bypasses the post-hit invulnerability window so a harness can drive
 ## several hits in a row. Never set during play.
 var test_ignore_invulnerability := false
+## Character shake state, and the world-space state icon that follows the player.
+var _char_shake_left := 0.0
+var _char_shake_total := 0.0
+var _char_shake_amplitude := 0.0
+var _char_shake_offset := Vector2.ZERO
+var _state_icon: Sprite2D
+var _state_icon_left := 0.0
 
 
 func _ready() -> void:
@@ -118,6 +141,10 @@ func _ready() -> void:
     sprite.play("idle")
     attack_hitbox.area_entered.connect(_on_attack_area_entered)
     dash_hitbox.area_entered.connect(_on_dash_area_entered)
+    # The stamina state icon is a child of the player, so it tracks them for free
+    # and needs no per-frame positioning.
+    _state_icon = UI.make_state_icon(self, UI.SHIKASHI_SWEAT, 0.7)
+    _state_icon.position = state_icon_offset
     health_changed.emit(health, max_health)
     stamina_changed.emit(stamina, max_stamina)
 
@@ -133,6 +160,8 @@ func _physics_process(delta: float) -> void:
     _buffer_attack_left = maxf(0.0, _buffer_attack_left - delta)
     _buffer_dash_left = maxf(0.0, _buffer_dash_left - delta)
     _exhausted_left = maxf(0.0, _exhausted_left - delta)
+    _tick_char_shake(delta)
+    _tick_state_icon(delta)
     _knockback = _knockback.move_toward(Vector2.ZERO, 900.0 * delta)
     if _dead:
         sprite.modulate = Color(0.55, 0.55, 0.6)
@@ -211,9 +240,13 @@ func _physics_process(delta: float) -> void:
     if can_act and _dash_cooldown_left <= 0.0 and Input.is_action_just_pressed("dash") \
             and stamina < dash_cost:
         stamina_denied.emit("dash")
+        shake_character(char_shake_denied)
+        show_state_icon(2, 0.35)
     if can_act and _attack_cooldown_left <= 0.0 and Input.is_action_just_pressed("attack") \
             and stamina < attack_cost:
         stamina_denied.emit("attack")
+        shake_character(char_shake_denied)
+        show_state_icon(2, 0.35)
 
     if _regen_hold_left <= 0.0 and not guarding and not _attacking and _dash_left <= 0.0:
         _change_stamina(stamina_regen_rate * stamina_boost_multiplier * delta)
@@ -261,6 +294,79 @@ func exhausted_left() -> float:
     return _exhausted_left
 
 
+## Shudder the character. Applied to the sprite only, never to the body, so a
+## feedback shake can never move the collision or the player's actual position.
+func shake_character(amplitude: float, seconds: float = -1.0) -> void:
+    var duration := char_shake_seconds if seconds < 0.0 else seconds
+    _char_shake_amplitude = maxf(amplitude, _char_shake_amplitude if _char_shake_left > 0.0 else 0.0)
+    _char_shake_total = maxf(duration, 0.0001)
+    _char_shake_left = _char_shake_total
+
+
+func _tick_char_shake(delta: float) -> void:
+    var wanted := Vector2.ZERO
+    if _char_shake_left > 0.0:
+        _char_shake_left = maxf(0.0, _char_shake_left - delta)
+        if _char_shake_left > 0.0:
+            # Horizontal only, so the character reads as shuddering rather than
+            # bobbing, and it settles instead of stopping abruptly.
+            var decay := _char_shake_left / _char_shake_total
+            wanted.x = sin((1.0 - decay) * TAU * 3.0) * _char_shake_amplitude * decay
+        else:
+            # The last frame must land exactly on zero: the sine envelope can leave
+            # a fraction of a pixel behind, which would offset the sprite for good.
+            _char_shake_amplitude = 0.0
+    if wanted != _char_shake_offset:
+        sprite.position -= _char_shake_offset
+        _char_shake_offset = wanted
+        sprite.position += _char_shake_offset
+
+
+## Show the stamina state icon above the character. Held briefly, and re-armed by
+## later events, so a burst cannot leave it stuck on screen.
+func show_state_icon(level: int, seconds: float = -1.0) -> void:
+    _state_icon.texture = _state_icon_texture(level)
+    _state_icon.visible = true
+    _state_icon_left = state_icon_hold if seconds < 0.0 else seconds
+
+
+func _state_icon_texture(level: int) -> AtlasTexture:
+    var rect := UI.SHIKASHI_SWEAT
+    if level == 2:
+        rect = UI.SHIKASHI_ZZZ
+    elif level >= 3:
+        rect = UI.SHIKASHI_SWOON
+    var tex := AtlasTexture.new()
+    tex.atlas = load(UI.SHIKASHI_SHEET) as Texture2D
+    tex.region = rect
+    return tex
+
+
+func _tick_state_icon(delta: float) -> void:
+    if _state_icon_left > 0.0:
+        _state_icon_left = maxf(0.0, _state_icon_left - delta)
+        if _state_icon_left == 0.0:
+            _refresh_state_icon()
+        return
+    # No active pop: mirror the bar so an already-low player sees the warning
+    # without having to cross the threshold again.
+    _refresh_state_icon()
+
+
+## Point the icon at the current band, or hide it when stamina is comfortable.
+func _refresh_state_icon() -> void:
+    var level := 0
+    if stamina <= warn_stamina_deep:
+        level = 2
+    elif stamina <= warn_stamina:
+        level = 1
+    if level == 0:
+        _state_icon.visible = false
+    else:
+        _state_icon.visible = true
+        _state_icon.texture = _state_icon_texture(level)
+
+
 ## Suppress regeneration briefly after a spend, so the cost is felt before the bar
 ## starts climbing again.
 func _hold_regen() -> void:
@@ -281,6 +387,10 @@ func _enter_exhausted() -> void:
     _invulnerability_left = maxf(_invulnerability_left, exhausted_break_grace)
     _shake_left = 0.12
     guard_broken_exhausted.emit()
+    # The HUD shakes the stamina bar on the same signal, so the character and the
+    # bar shudder together.
+    shake_character(char_shake_break)
+    show_state_icon(3, 0.6)
 
 
 ## Only the exhausted state slows animation. Low stamina on its own never does, so
@@ -300,10 +410,14 @@ func _check_stamina_warnings() -> void:
             _warn_deep_latch = true
             _warn_latch = true
             stamina_warning.emit(2)
+            shake_character(char_shake_deep)
+            show_state_icon(2)
     elif stamina <= warn_stamina:
         if not _warn_latch:
             _warn_latch = true
             stamina_warning.emit(1)
+            shake_character(char_shake_warn)
+            show_state_icon(1)
     else:
         _warn_latch = false
         _warn_deep_latch = false
@@ -331,6 +445,8 @@ func _change_stamina(amount: float) -> void:
             # `_check_stamina_warnings`, which spending can never reach.
             _warn_latch = false
             _warn_deep_latch = false
+        # Refresh on any change so the icon cannot linger after recovery.
+        _refresh_state_icon()
 
 
 func restore_stamina() -> void:

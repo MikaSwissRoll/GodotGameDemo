@@ -180,14 +180,17 @@ func _configure_run_target(game: Node) -> void:
             # compared side by side with the bar they belong to.
             ui.start_requested.emit()
             await _wait_frames(6)
+            # Crossing the line fires the character shake, the bar shake and the
+            # state icon together; wait for the shake to settle so the capture shows
+            # the settled state rather than a mid-shudder frame.
             game.player._change_stamina(-72.0)   # 100 -> 28, past the shallow line
-            await _wait_frames(3)
+            await _wait_frames(24)
             paused = true
         "stamina_deep":
             ui.start_requested.emit()
             await _wait_frames(6)
             game.player._change_stamina(-82.0)   # 100 -> 18, past the deep line
-            await _wait_frames(3)
+            await _wait_frames(24)
             paused = true
         "stamina_denied":
             # A refused action: stamina below both costs, then the denial signal the
@@ -197,7 +200,7 @@ func _configure_run_target(game: Node) -> void:
             game.player._change_stamina(-95.0)   # 100 -> 5, affords nothing
             await _wait_frames(2)
             game.player.stamina_denied.emit("attack")
-            await _wait_frames(2)
+            await _wait_frames(24)
             paused = true
         "stamina_exhausted":
             # Guard break: a block that empties the bar. Drives the real path so the
@@ -211,7 +214,7 @@ func _configure_run_target(game: Node) -> void:
             p.guarding = true
             p.facing = Vector2.RIGHT
             p.take_damage(12, Vector2.LEFT)
-            await _wait_frames(2)
+            await _wait_frames(24)
             paused = true
         "merchant_shop":
             game.gold = 12

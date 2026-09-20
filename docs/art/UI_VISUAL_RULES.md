@@ -147,18 +147,25 @@ A player must never discover that stamina is empty only because an action stoppe
 responding. Every stamina cost is announced twice: by the bar while it falls, and
 by immediate feedback when an action is refused.
 
-- Warning steps at **30** and **20**. Each fires a one-shot shake of the stamina
-  bar, the deeper step harder, plus a state icon beside the bar. Each threshold
-  re-arms only once stamina climbs back above it, so regenerating across the line
-  cannot retrigger the warning.
-- A **refused action** shakes the bar briefly and pops the icon. Refusal is never
-  silent, and never uses text or sound.
+- Warning steps at **30** and **20**. Each fires a one-shot shake of the character
+  **and** the stamina bar together, the deeper step harder, so the shudder reads
+  as belonging to the player rather than to the HUD alone. Each threshold re-arms
+  only once stamina climbs back above it, so regenerating across the line cannot
+  retrigger the warning.
+- A **refused action** shakes the character and the bar briefly and pops the icon.
+  Refusal is never silent, and never uses text or sound.
 - A **guard break** gets the strongest, shortest shake and the exhausted icon.
 - Feedback is debounced so repeated events cannot keep the icon up or turn the
-  shake into a permanent wobble. The bar must be still whenever nothing is wrong.
-- Icons come from the Shikashi atlas (`SHIKASHI_SWEAT`, `SHIKASHI_ZZZ`,
-  `SHIKASHI_SWOON`), drawn at an integer scale beside the stamina bar. The bar and
-  its fill artwork are never recoloured or modified for feedback.
+  shake into a permanent wobble. The bar and the character must be still whenever
+  nothing is wrong.
+- The state icon comes from the Shikashi atlas (`SHIKASHI_SWEAT`, `SHIKASHI_ZZZ`,
+  `SHIKASHI_SWOON`) and rides **above and to the right of the character**, not
+  beside the bar, so it points at whoever the warning applies to. It shows at rest
+  while stamina is low, and pops briefly on an event. The bar and its fill artwork
+  are never recoloured or modified for feedback.
+- The character shake moves the **sprite only**, never the body, so feedback can
+  never displace collision or the player's real position, and it settles back
+  exactly rather than leaving a fraction of a pixel behind.
 - **Low stamina must not slow normal actions.** Attack, dash, and guard keep their
   timing so the controls never feel laggy; only the exhausted state slows
   animation, and only briefly.

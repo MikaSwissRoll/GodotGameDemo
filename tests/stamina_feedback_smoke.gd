@@ -10,6 +10,7 @@ extends SceneTree
 ## Balance values are asserted unchanged, so an accidental retune fails here.
 
 const INPUT_SETUP := preload("res://scripts/systems/input_setup.gd")
+const UI := preload("res://scripts/ui/tiny_swords_ui.gd")
 
 var game: Node2D
 var player: Player
@@ -42,14 +43,86 @@ func _run() -> void:
 
     _check_balance_unchanged()
     await _check_warning_thresholds()
+    # These contain `await`, so they are coroutines: calling one without `await`
+    # returns at its first suspension point and the rest never runs.
+    await _check_character_shake()
+    await _check_state_icon_anchor()
     await _check_last_chance_guard()
     await _check_exhaustion()
     await _check_regen_hold()
     _check_buffers()
     _check_upgrade_costs()
 
-    print("STAMINA PASS: thresholds, last-chance guard, exhaustion, buffer, regen hold, costs")
+    print("STAMINA PASS: thresholds, char shake, icon anchor, last-chance guard, exhaustion, buffer, regen hold, costs")
     quit(0)
+
+
+## The character must shudder on a warning, and settle. Only the sprite moves, so a
+## feedback shake can never displace the collision body.
+func _check_character_shake() -> void:
+    # The preceding threshold checks leave stamina low, which fires a shake of its
+    # own. Let it finish before measuring, or the baseline below records a frame
+    # mid-shudder and the settle assertion can never match.
+    var waited := 0
+    while player._char_shake_left > 0.0 and waited < 120:
+        await physics_frame
+        waited += 1
+    await physics_frame
+    var body_before := player.global_position
+    # Capture the resting sprite position before shaking.
+    var sprite_base := player.sprite.position
+    player.shake_character(6.0, 0.25)
+    var amplitudes: Array[float] = []
+    var body_moved := 0.0
+    for frame in 16:
+        await physics_frame
+        amplitudes.append(absf(player.sprite.position.x - sprite_base.x))
+        body_moved = maxf(body_moved, player.global_position.distance_to(body_before))
+    var peak := 0.0
+    for value in amplitudes:
+        peak = maxf(peak, value)
+    assert(peak > 0.5, "the character did not move during a warning shake (peak %.2fpx)" % peak)
+    assert(body_moved < 1.0,
+        "the shake moved the body by %.2fpx; it must only move the sprite" % body_moved)
+    # Let it finish and confirm it settles exactly back.
+    var settled := 0
+    while settled < 40 and not is_equal_approx(player.sprite.position.x, sprite_base.x):
+        await physics_frame
+        settled += 1
+    assert(is_equal_approx(player.sprite.position.x, sprite_base.x),
+        "the character shake did not settle (x=%.2f, base=%.2f)" % [
+            player.sprite.position.x, sprite_base.x])
+    print("  character shake peaked at %.1fpx on the sprite, body stayed put, settled" % peak)
+
+
+## The state icon rides the character's upper-right, so it points at whoever the
+## warning applies to rather than sitting beside the bar.
+func _check_state_icon_anchor() -> void:
+    var icon: Sprite2D = player._state_icon
+    assert(icon != null, "player has no state icon")
+    assert(icon.get_parent() == player, "state icon is not a child of the player")
+    assert(icon.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST,
+        "state icon is not nearest-filtered")
+    assert(player.state_icon_offset.x > 0.0 and player.state_icon_offset.y < 0.0,
+        "state icon offset is not up and to the right: %s" % player.state_icon_offset)
+    # It must show while stamina is low and hide once recovered.
+    player.restore_stamina()
+    await _wait_frames(3)
+    print("  diag icon: stamina=%.1f visible=%s hold=%.2f" % [
+        player.stamina, icon.visible, player._state_icon_left])
+    assert(not icon.visible, "state icon stayed visible at full stamina")
+    player._change_stamina(-75.0)          # -> 25, a warning band
+    await _wait_frames(3)
+    assert(icon.visible, "state icon did not appear at low stamina")
+    assert(Rect2i((icon.texture as AtlasTexture).region) == UI.SHIKASHI_SWEAT,
+        "shallow warning shows the wrong icon")
+    player._change_stamina(-10.0)          # -> 15, the deep band
+    await _wait_frames(3)
+    assert(Rect2i((icon.texture as AtlasTexture).region) == UI.SHIKASHI_ZZZ,
+        "deep warning shows the wrong icon")
+    player.restore_stamina()
+    await _wait_frames(3)
+    print("  state icon follows the player, up-and-right, swaps sweat/zzz, hides when safe")
 
 
 func _check_balance_unchanged() -> void:

@@ -28,13 +28,6 @@ var health_bar: TinyBar
 var health_label: Label
 var stamina_bar: TinyBar
 var stamina_label: Label
-## Stamina feedback state, matching the roguelite HUD: an icon pops briefly on a
-## warning, a refused action, or a guard break.
-var stamina_warn_icon: Sprite2D
-var _icon_hold_left := 0.0
-var _last_feedback_ms := -10000
-const FEEDBACK_ICON_HOLD := 0.55
-const FEEDBACK_DEBOUNCE_MS := 140
 var gold_icon: TextureRect
 var gold_label: Label
 var quest_icon: TextureRect
@@ -74,7 +67,6 @@ func _process(delta: float) -> void:
         _toast_time -= delta
         if _toast_time <= 0.0:
             toast_label.visible = false
-    _tick_stamina_icon(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -97,58 +89,23 @@ func set_stamina(current: float, maximum: float) -> void:
     stamina_bar.max_value = maximum
     stamina_bar.value = current
     stamina_label.text = "精力  %d / %d" % [ceili(current), ceili(maximum)]
-    if _icon_hold_left <= 0.0:
-        stamina_warn_icon.visible = current <= 30.0
 
 
-## Low-stamina warning. Level 1 is the shallow threshold, level 2 the deep one.
+## Low-stamina warning. Level 1 is the shallow threshold, level 2 the deeper one.
+## The bar shakes here; the character and its state icon are driven by the player,
+## so the warning reads as the character and the bar shuddering together.
 func _on_stamina_warning(level: int) -> void:
-    stamina_warn_icon.texture = _icon_for_level(level)
     stamina_bar.shake(6.0 if level >= 2 else 3.0, 0.22 if level >= 2 else 0.16)
-    _pop_icon(0.7 if level >= 2 else 0.45)
 
 
 ## A refused action must never be silent.
 func _on_stamina_denied(_action: String) -> void:
-    stamina_warn_icon.texture = _icon_for_level(2)
     stamina_bar.shake(5.0, 0.18)
-    _pop_icon(0.3)
 
 
 ## Guard broke from running out of stamina.
 func _on_guard_broken_exhausted() -> void:
-    stamina_warn_icon.texture = _icon_for_level(3)
     stamina_bar.shake(8.0, 0.3)
-    _pop_icon(0.6)
-
-
-func _icon_for_level(level: int) -> AtlasTexture:
-    var rect := UI.SHIKASHI_ZZZ if level >= 2 else UI.SHIKASHI_SWEAT
-    if level >= 3:
-        rect = UI.SHIKASHI_SWOON
-    var tex := AtlasTexture.new()
-    tex.atlas = load(UI.SHIKASHI_SHEET) as Texture2D
-    tex.region = rect
-    return tex
-
-
-func _pop_icon(seconds: float) -> void:
-    var now := Time.get_ticks_msec()
-    if now - _last_feedback_ms < FEEDBACK_DEBOUNCE_MS and _icon_hold_left > 0.0:
-        return
-    _last_feedback_ms = now
-    _icon_hold_left = maxf(seconds, FEEDBACK_ICON_HOLD * 0.5)
-    stamina_warn_icon.visible = true
-
-
-func _tick_stamina_icon(delta: float) -> void:
-    if _icon_hold_left <= 0.0:
-        return
-    _icon_hold_left = maxf(0.0, _icon_hold_left - delta)
-    if _icon_hold_left == 0.0:
-        # Settle back to the resting state: still shown while stamina is low.
-        stamina_warn_icon.visible = stamina_bar.value <= 30.0
-        stamina_warn_icon.texture = _icon_for_level(2 if stamina_bar.value <= 20.0 else 1)
 
 
 func set_gold(amount: int) -> void:
@@ -238,9 +195,6 @@ func _build_hud(root: Control) -> void:
     health_bar = _bar(root, Vector2(20, 48), "big", 288.0)
     stamina_label = _label(root, Vector2(20, 104), Vector2(280, 26), 19)
     stamina_bar = _bar(root, Vector2(20, 132), "small", 232.0)
-    # Warning icon just past the stamina bar's right end, on the same row.
-    stamina_warn_icon = UI.make_state_icon(root, UI.SHIKASHI_SWEAT, 0.6)
-    stamina_warn_icon.position = Vector2(268, 132)
 
     gold_icon = UI.add_icon(root,
         "res://asset/UI Elements/UI Elements/Icons/Icon_03.png",
