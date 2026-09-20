@@ -60,6 +60,18 @@ func _check_group_spawn_and_cap() -> void:
     assert(spawned >= 3 and spawned <= 6,
         "A respawn group was %d, expected 3..6" % spawned)
 
+    # Group membership is what every consumer actually queries, and it is a separate
+    # thing from the array the spawner keeps. Declaring `groups=["bandits"]` in
+    # game.tscn only ever tagged the seven placed story enemies: instantiate() does
+    # not carry a scene-declared group, so spawned enemies used to arrive with no
+    # group at all and a companion had nothing it was allowed to target.
+    for enemy in game._free_play_enemies:
+        assert(enemy.is_in_group("bandits"),
+            "A spawned enemy is not in the bandits group, so companions and target queries cannot see it")
+    for node in get_nodes_in_group("bandits"):
+        assert(node is Enemy or node is ArcherEnemy,
+            "Something that is not an enemy is in the bandits group: %s" % node)
+
     # Placement: outside the village, and not on top of the player.
     for enemy in game._free_play_enemies:
         var at: Vector2 = enemy.global_position

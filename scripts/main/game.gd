@@ -431,7 +431,11 @@ func _on_main_quest_completed() -> void:
     _respawn_left = respawn_delay
     # Hiring opens only now. Before this the companion is not in the world at all,
     # so there is nothing to talk to rather than a locked door to explain.
-    pawn_knife.activate()
+    #
+    # The recruit may already be gone: this runs on every entry into free play, and
+    # a recruited companion has freed the NPC. Reaching it would be a use-after-free.
+    if is_instance_valid(pawn_knife):
+        pawn_knife.activate()
 
 
 ## ---- Companion recruitment -------------------------------------------------

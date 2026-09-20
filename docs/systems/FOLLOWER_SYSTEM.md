@@ -87,6 +87,23 @@ The Guard, the Merchant and the recruit are `Area2D`s for interaction, so a soli
 enemies walk straight through a person. The interaction radius is 78px, far larger
 than the body, so being blocked never prevents talking to them.
 
+## Enemy targeting
+
+Enemies find their target through the `party` group: the `Player`, plus anything
+implementing `is_party_member()`. Friendly NPCs are deliberately **not** party
+members, so they stay out of enemy targeting.
+
+Both hostile classes retarget on a timer (`retarget_interval`, 1.6s), never per
+frame, so neither can flicker between the player and a companion mid-swing. A rival
+must be clearly closer before a switch (`companion_preference`, 0.6).
+
+**Group membership is set in code, not in the scene.** `Enemy._ready()` and
+`ArcherEnemy._ready()` call `add_to_group("bandits")`. A `groups=[...]` declared in
+a `.tscn` belongs to that placed instance and is *not* carried by `instantiate()`,
+so relying on it meant every runtime-spawned enemy was invisible to companions,
+target queries and the alive count. This is a property of the class, so it lives in
+the class.
+
 ## Gold drops
 
 | Enemy | Drop |
@@ -306,6 +323,27 @@ Recorded because each cost real time and would repeat:
    swing could land, but never that the companion would seek a fight. The real bug
    above hid behind it for a whole round. Pair the unit with the situation it will
    actually meet, and let it act rather than staging the outcome.
+10. **The companion ignored every free-play enemy, and this was the reported
+    "hired but never attacks".** A group declared in a scene file
+    (`groups=["bandits"]` on the seven placed story enemies) belongs to *that
+    instance*. `instantiate()` does **not** carry it, and no enemy script called
+    `add_to_group`, so every enemy spawned at runtime arrived with no group at all.
+    `Follower._pick_target()` searches that group, so it found only the surviving
+    story enemies — which is why the companion seemed to work right after hiring and
+    then stopped as soon as the player moved on to the respawning camp. Fixed by
+    adding membership in `_ready()` of both enemy classes, where it belongs, since
+    it is a property of the class and not of a placement. The same omission was
+    silently starving `_count_alive_enemies()` (so a companion regenerated mid-fight)
+    and `Party.nearest_hostile()`.
+11. **An archer could not target a companion at all.** It took the player once in
+    `_ready` and never re-evaluated, unlike the melee enemy which retargets on a
+    timer. Fixing the arrow mask alone left that half inert: the arrow could hit a
+    companion, but no archer ever aimed at one. The archer now retargets on the same
+    stable interval, preferring the player unless a companion is markedly closer.
+12. **`_on_main_quest_completed()` was not safe to run twice.** It called
+    `activate()` on the recruit unconditionally, but entering free play again after
+    the companion has been hired touches a freed node. Guarded with
+    `is_instance_valid`.
 
 ## See also
 

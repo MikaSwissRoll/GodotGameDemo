@@ -42,14 +42,98 @@ func _run() -> void:
 
     _check_archer_is_hostile_classification()
     await _check_companion_attacks_archer()
+    await _check_companion_engages_spawned_enemy()
     await _check_arrow_damages_companion()
+    await _check_archer_targets_companion()
     await _check_archer_drops_three_gold()
     _check_npcs_have_bodies()
     await _check_player_is_blocked_by_npc()
     await _check_companion_is_blocked_by_enemy()
 
-    print("COMPANION ARCHER PASS: archers targetable, arrows hurt companions, archers pay 3, NPCs block")
+    print("COMPANION ARCHER PASS: archers and spawned enemies targetable, arrows hurt companions, archers pay 3, NPCs block, archers retarget")
     quit(0)
+
+
+## The reported bug, in the form the player met it.
+##
+## A free-play enemy is created by instantiate(), which does not carry a group
+## declared in the scene file. Those enemies used to arrive with no `bandits`
+## membership, so a companion standing next to one picked nothing and simply
+## followed the player around. Placement here is the situation, not a staged
+## outcome: the enemy is put near the PLAYER and the companion is left to find it.
+func _check_companion_engages_spawned_enemy() -> void:
+    var progress := game.get_node("ClassicProgression") as ClassicProgression
+    progress.start_free_play()
+    await _wait(4)
+    var spawned: Array = game._free_play_enemies
+    assert(not spawned.is_empty(), "Setup: free play spawned nothing to fight")
+
+    var foe: Node2D = spawned[0]
+    assert(foe.is_in_group("bandits"),
+        "A free-play enemy is not in the bandits group, so no companion can target it")
+
+    # Explicit placement, so this check does not depend on whatever the previous
+    # checks left behind. Every other bandit goes far out of range, which is exactly
+    # the post-quest state the player was in when the bug was reported.
+    for node in get_nodes_in_group("bandits"):
+        if node != foe:
+            (node as Node2D).global_position = Vector2(120, 3600)
+    foe.global_position = Vector2(2760, 800)
+    player.global_position = Vector2(2680, 800)
+    companion.global_position = Vector2(2630, 830)
+    companion.state = Follower.State.FOLLOW
+    companion.target = null
+    companion._attack_cooldown_left = 0.0
+    companion._attack_phase = 0.0
+    await _wait(10)
+
+    assert(companion.target == foe,
+        "The companion did not acquire a spawned free-play enemy (target=%s, state=%d, dist=%.0f, hp=%d)" % [
+            companion.target, companion.state,
+            companion.global_position.distance_to(foe.global_position), foe.get("health")])
+
+    var before: int = foe.get("health")
+    for frame in 600:
+        await physics_frame
+        if foe.get("health") < before:
+            break
+    assert(foe.get("health") < before,
+        "The companion never damaged a spawned free-play enemy (hp=%d, state=%d, dist=%.0f)" % [
+            foe.get("health"), companion.state,
+            companion.global_position.distance_to(foe.global_position)])
+    print("  companion acquired and damaged a spawned free-play enemy (%d -> %d)" % [
+        before, foe.get("health")])
+
+
+## An archer used to grab the player once in `_ready` and never look again, so it
+## could not react to a companion at all. With the player far away and a companion
+## close, it must switch.
+func _check_archer_targets_companion() -> void:
+    var archer := game.get_node("ArcherEnemy1") as ArcherEnemy
+    var melee := game.get_node("MeleeEnemy1") as Enemy
+    # Keep the melee enemy from interfering, and keep the companion standing still.
+    melee.global_position = Vector2(120, 3600)
+    player.global_position = Vector2(600, 300)
+    archer.global_position = Vector2(3400, 1200)
+    companion.global_position = archer.global_position + Vector2(-40, 0)
+    companion.state = Follower.State.FOLLOW
+    companion.health = companion.max_health
+    # Longer than the archer's retarget interval.
+    var waited := 0
+    while companion.target == null and waited < 30:
+        await physics_frame
+        waited += 1
+    var switched := false
+    var elapsed := 0
+    for frame in 200:
+        await physics_frame
+        elapsed = frame
+        if archer.target == companion:
+            switched = true
+            break
+    assert(switched,
+        "The archer never targeted the far closer companion (target=%s)" % archer.target)
+    print("  archer switched to the nearer companion after %d frames" % elapsed)
 
 
 ## The classification bug in one assertion: `ArcherEnemy` shares no base with

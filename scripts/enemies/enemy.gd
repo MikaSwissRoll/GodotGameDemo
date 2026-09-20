@@ -45,6 +45,11 @@ var _retarget_left := 0.0
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     health = max_health
+    # Membership of the hostile group belongs to the class, not to the placed
+    # instance. Declaring it in the scene file only tagged the seven story enemies;
+    # anything spawned at runtime came up with no group at all, so companions,
+    # target queries and the alive count could not see free-play enemies.
+    add_to_group("bandits")
     target = get_tree().get_first_node_in_group("player") as Player
     var frames := SpriteFrames.new()
     frames.remove_animation("default")

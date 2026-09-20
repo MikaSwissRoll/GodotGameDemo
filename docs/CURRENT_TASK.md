@@ -137,3 +137,40 @@ New suite `tests/companion_archer_smoke.gd` covers all of the above, including t
 proven collision clamps: a 90px push into the Guard is stopped 60px → 30px from his
 centre, and a 90px push into an enemy is stopped 74px → 38px. Each is exactly the
 sum of the two capsule radii.
+
+## Second follow-up: "hired, but still never attacks"
+
+Reported after the first fixes. Investigated read-only first, then fixed.
+
+**Root cause: the `bandits` group was declared in `game.tscn`, not in the enemy
+classes.** `groups=["bandits"]` appears on the seven *placed* story enemies, and no
+script anywhere called `add_to_group`. In Godot a scene-declared group belongs to
+that instance and is **not** carried by `instantiate()`, so every enemy created at
+runtime arrived with no group. Measured before the fix: **0 of 4** spawned enemies
+were in the group; after: **4 of 4**.
+
+`Follower._pick_target()` searches that group, so a companion in the post-quest loop
+had nothing it was allowed to target. That also explains the shape of the report —
+it seemed to work right after hiring, while the placed story enemies were still
+alive, and stopped once the player moved on to the respawning camp. The same
+omission was starving `_count_alive_enemies()` (a companion regenerating mid-fight)
+and `Party.nearest_hostile()`.
+
+**Second, independent defect: archers never retargeted.** `ArcherEnemy` took the
+player once in `_ready` and never re-evaluated, unlike the melee enemy. Fixing the
+arrow mask earlier therefore only did half the job: an arrow could hit a companion,
+but no archer ever aimed at one. Archers now retarget on the same stable 1.6s
+interval, preferring the player unless a companion is markedly closer.
+
+**Third: `_on_main_quest_completed()` was not re-entrant.** It called `activate()`
+on the recruit unconditionally, which is a use-after-free once the companion has
+been hired and the NPC freed. Now guarded.
+
+Why the suites missed it, and what now covers it:
+
+- `free_play_spawn_smoke` asserted on `game._free_play_enemies`, the spawner's own
+  array, and never on actual group membership. It now checks `is_in_group("bandits")`
+  for every spawned enemy.
+- Every companion suite used only the placed story enemies, which happened to have
+  the group. `companion_archer_smoke` now acquires a **spawned** free-play enemy.
+- The archer's failure to retarget is now asserted directly.
