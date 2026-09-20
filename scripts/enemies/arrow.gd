@@ -1,6 +1,8 @@
 extends Area2D
 class_name EnemyArrow
 
+const PARTY := preload("res://scripts/systems/party.gd")
+
 @export var speed: float = 440.0
 @export var damage: int = 10
 @export var lifetime: float = 2.8
@@ -21,11 +23,13 @@ func _physics_process(delta: float) -> void:
         queue_free()
 
 
+## Hits any member of the player's party, not only the player, so a recruited
+## companion is a real participant rather than an ignored bystander.
 func _on_area_entered(area: Area2D) -> void:
-    var player := area.get_parent() as Player
-    if player == null:
+    var victim := area.get_parent()
+    if not PARTY.is_party_member(victim):
         return
-    player.take_damage(damage, direction)
+    victim.take_damage(damage, direction)
     queue_free()
 
 

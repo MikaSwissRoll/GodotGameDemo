@@ -159,6 +159,9 @@ var _was_guarding := false
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     add_to_group("player")
+    # The party group is who the hostile side may target. Companions join it too,
+    # so enemy targeting can iterate one group instead of special-casing the player.
+    add_to_group("party")
     health = max_health
     stamina = max_stamina
     var frames := SpriteFrames.new()

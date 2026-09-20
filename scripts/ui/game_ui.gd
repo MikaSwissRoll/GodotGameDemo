@@ -11,6 +11,12 @@ signal quit_requested
 signal buy_health_requested
 signal buy_stamina_requested
 signal shop_closed
+## Companion recruitment. The hire itself is decided by the game, not the UI, so the
+## UI only reports which row the player chose.
+signal recruit_accepted
+signal recruit_declined
+## Acknowledging a companion line that carried no decision.
+signal dismiss_requested
 
 const INK := Color("#f7edcf")
 const PANEL_COLOR := Color("#26362f", 0.94)
@@ -199,6 +205,21 @@ func show_shop(gold: int, health_price: int, stamina_price: int, line: String = 
         body = "%s\n当前金币：%d" % [line, gold]
     _show_overlay("村庄商人", body, "", "", "shop", "离开商店")
     _refresh_shop_buttons()
+
+
+## The hire offer. Uses the same overlay and action rows as every other decision,
+## so the companion does not introduce a second dialogue framework.
+func show_recruit_offer(body: String, hire_label: String, can_hire: bool) -> void:
+    _show_overlay("雇佣兵", body, hire_label, "暂时不用", "recruit")
+    # A refused offer still reads as a real choice, so the hire row keeps its
+    # normal state and simply does nothing when it is unaffordable; the body
+    # explains why, which is clearer than a dead button.
+
+
+## A recruit line with no decision, used for the refusal and for talking to him
+## after he has already joined.
+func show_recruit_notice(title: String, body: String) -> void:
+    _show_overlay(title, body, "知道了", "", "recruit_notice")
 
 
 func set_shop_message(message: String) -> void:
@@ -405,6 +426,8 @@ func _on_primary_pressed() -> void:
         "pause", "complete": resume_requested.emit()
         "game_over": restart_requested.emit()
         "shop": buy_health_requested.emit()
+        "recruit": recruit_accepted.emit()
+        "recruit_notice": dismiss_requested.emit()
 
 
 func _on_secondary_pressed() -> void:
@@ -412,6 +435,7 @@ func _on_secondary_pressed() -> void:
         "menu": quit_requested.emit()
         "pause": restart_requested.emit()
         "shop": buy_stamina_requested.emit()
+        "recruit": recruit_declined.emit()
         _: title_requested.emit()
 
 

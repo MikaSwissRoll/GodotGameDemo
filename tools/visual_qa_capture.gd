@@ -26,6 +26,9 @@ const VALID_TARGETS := [
     "guard_tutorial",
     "supply_tutorial",
     "free_play",
+    "recruit_offer",
+    "companion_follow",
+    "companion_combat",
     "pause_menu",
     "reward_overlay",
     "shop_overlay",
@@ -122,7 +125,8 @@ func _parse_arguments() -> bool:
 ## scene, so a new roguelite target does not have to be registered in two places.
 const CLASSIC_TARGETS := [
     "village", "wilderness", "enemy_camp", "dialogue_ui", "npc_marker_far",
-    "guard_tutorial", "supply_tutorial", "free_play"
+    "guard_tutorial", "supply_tutorial", "free_play",
+    "recruit_offer", "companion_follow", "companion_combat"
 ]
 
 
@@ -301,6 +305,34 @@ func _configure_classic_target(game: Node) -> void:
             player.global_position = Vector2(2650, 850)
             var done := game.get_node("ClassicProgression") as ClassicProgression
             done.start_free_play()
+        "recruit_offer":
+            # The hire dialogue, with enough gold that the offer is the real one.
+            var prog := game.get_node("ClassicProgression") as ClassicProgression
+            prog.start_free_play()
+            game.gold = 40
+            ui.set_gold(40)
+            player.global_position = Vector2(1240, 1080)
+            await _wait_frames(4)
+            game._on_pawn_knife_interacted()
+        "companion_follow":
+            # A hired companion on station behind the player, out of combat.
+            var prog2 := game.get_node("ClassicProgression") as ClassicProgression
+            prog2.start_free_play()
+            game.gold = 40
+            game._on_recruit_accepted()
+            player.global_position = Vector2(1020, 980)
+            # Let the companion walk to its slot before the frame is frozen.
+            await _wait_frames(90)
+        "companion_combat":
+            # Player and companion engaging an outer group together.
+            var prog3 := game.get_node("ClassicProgression") as ClassicProgression
+            prog3.start_free_play()
+            game.gold = 40
+            game._on_recruit_accepted()
+            player.global_position = Vector2(2700, 850)
+            var foe := game.get_node("MeleeEnemy1") as Node2D
+            foe.global_position = Vector2(2790, 860)
+            await _wait_frames(120)
         "wilderness":
             player.global_position = Vector2(2050, 800)
         "enemy_camp":

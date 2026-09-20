@@ -1,6 +1,6 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('main_menu', 'main_menu_focus', 'main_menu_pressed', 'menu_transition', 'classic_entry', 'town_overview', 'village', 'wilderness', 'enemy_camp', 'combat', 'stamina_low', 'stamina_deep', 'stamina_denied', 'stamina_exhausted', 'merchant_shop', 'dialogue_ui', 'npc_marker_far', 'guard_tutorial', 'supply_tutorial', 'free_play', 'pause_menu', 'reward_overlay', 'shop_overlay', 'result_dead')]
+    [ValidateSet('main_menu', 'main_menu_focus', 'main_menu_pressed', 'menu_transition', 'classic_entry', 'town_overview', 'village', 'wilderness', 'enemy_camp', 'combat', 'stamina_low', 'stamina_deep', 'stamina_denied', 'stamina_exhausted', 'merchant_shop', 'dialogue_ui', 'npc_marker_far', 'guard_tutorial', 'supply_tutorial', 'free_play', 'recruit_offer', 'companion_follow', 'companion_combat', 'pause_menu', 'reward_overlay', 'shop_overlay', 'result_dead')]
     [string]$Target,
 
     [string]$Output = '',

@@ -3,6 +3,7 @@ extends CharacterBody2D
 
 const SPRITES := preload("res://scripts/systems/sprite_frames_factory.gd")
 const FEEDBACK := preload("res://scripts/systems/combat_feedback.gd")
+const PARTY := preload("res://scripts/systems/party.gd")
 const RED_WARRIOR := "res://asset/Units/Red Units/Warrior/"
 
 signal defeated(at: Vector2)
@@ -15,13 +16,19 @@ signal health_changed(current: int, maximum: int)
 @export var attack_range: float = 90.0
 @export var attack_cooldown: float = 1.3
 @export var elite: bool = false
+## How often an enemy re-evaluates who to attack. Not per frame, so it cannot
+## flicker between the player and a companion mid-swing.
+@export var retarget_interval: float = 1.6
+## A rival must be this much closer before an enemy switches away from its current
+## target, which keeps existing player targeting stable.
+@export var companion_preference: float = 0.6
 
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var hurtbox: Area2D = $Hurtbox
 @onready var attack_hitbox: Area2D = $AttackHitbox
 @onready var body_shape: CollisionShape2D = $CollisionShape2D
 
-var target: Player
+var target: Node2D
 var health: int
 var _warning: Polygon2D
 var _alive := true
@@ -32,6 +39,7 @@ var _flash_left := 0.0
 var _knockback := Vector2.ZERO
 var _facing := Vector2.LEFT
 var _attack_direction := Vector2.LEFT
+var _retarget_left := 0.0
 
 
 func _ready() -> void:
@@ -73,7 +81,8 @@ func _physics_process(delta: float) -> void:
     _knockback = _knockback.move_toward(Vector2.ZERO, 750.0 * delta)
     var base_color := Color("#ffe0a2") if elite else Color.WHITE
     sprite.modulate = Color(1.0, 0.42, 0.42) if _flash_left > 0.0 else base_color
-    if not is_instance_valid(target) or target.is_dead():
+    _retarget(delta)
+    if not is_instance_valid(target):
         velocity = _knockback
         move_and_slide()
         return
@@ -99,6 +108,63 @@ func _physics_process(delta: float) -> void:
         if sprite.animation != "idle":
             sprite.play("idle")
     move_and_slide()
+
+
+## Keep a valid target, and only look for a new one occasionally.
+##
+## Before companions existed this could simply hold the player forever. Now that a
+## recruited companion is also a legitimate target, the enemy needs to notice when
+## its current target is gone and to sometimes prefer whoever is closer. Both are
+## done on a timer rather than per frame, so an enemy does not flicker between the
+## player and a companion and lose its wind-up.
+func _retarget(delta: float) -> void:
+    _retarget_left = maxf(0.0, _retarget_left - delta)
+    if _is_target_valid(target) and _retarget_left > 0.0:
+        return
+    _retarget_left = retarget_interval
+    if _is_target_valid(target):
+        # Still valid, but re-evaluate: a companion may have closed in.
+        var rival := _nearest_party_actor()
+        if rival != null and rival != target:
+            var rival_distance := global_position.distance_to(rival.global_position)
+            var current_distance := global_position.distance_to(target.global_position)
+            if rival_distance < current_distance * companion_preference:
+                target = rival
+        return
+    target = _nearest_party_actor()
+
+
+func _is_target_valid(candidate: Node2D) -> bool:
+    if candidate == null or not is_instance_valid(candidate):
+        return false
+    if candidate is Player:
+        return not (candidate as Player).is_dead()
+    # A downed companion stops being worth attacking, which is what makes the
+    # downed state read as out of the fight rather than a free hit.
+    if candidate.has_method("is_party_member"):
+        return candidate.state != 4 and (candidate.get("health") as int) > 0
+    return false
+
+
+## Nearest living member of the player's party. Deliberately does not include the
+## Guard or the Merchant: they are friendly, not party members, and must stay safe.
+func _nearest_party_actor() -> Node2D:
+    var best: Node2D = null
+    var best_distance := INF
+    for node in get_tree().get_nodes_in_group("party"):
+        if not _is_target_valid(node):
+            continue
+        var distance := global_position.distance_to((node as Node2D).global_position)
+        if distance < best_distance:
+            best_distance = distance
+            best = node
+    # Fall back to the player if nothing has registered in the party group yet,
+    # so an enemy is never left without a target in an existing scene.
+    if best == null:
+        var player := get_tree().get_first_node_in_group("player") as Player
+        if player != null and not player.is_dead():
+            best = player
+    return best
 
 
 func _start_attack() -> void:
@@ -128,10 +194,11 @@ func _start_attack() -> void:
 func _on_attack_area_entered(area: Area2D) -> void:
     if not _attacking or _hit_this_swing:
         return
-    var player := area.get_parent()
-    if player is Player:
-        _hit_this_swing = true
-        player.take_damage(damage, _attack_direction)
+    var victim := area.get_parent()
+    if not PARTY.is_party_member(victim):
+        return
+    _hit_this_swing = true
+    victim.take_damage(damage, _attack_direction)
 
 
 func take_damage(amount: int, source_direction: Vector2) -> void:

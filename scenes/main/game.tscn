@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/main/game.gd" id="1_game"]
 [ext_resource type="PackedScene" path="res://scenes/world/world.tscn" id="2_world"]
@@ -11,6 +11,8 @@
 
 [ext_resource type="PackedScene" path="res://scenes/world/merchant.tscn" id="9_merchant"]
 [ext_resource type="Script" path="res://scripts/systems/classic_progression.gd" id="10_progress"]
+[ext_resource type="PackedScene" path="res://scenes/world/recruit_npc.tscn" id="11_recruit"]
+[ext_resource type="PackedScene" path="res://scenes/party/follower.tscn" id="12_follower"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_game")
@@ -25,6 +27,10 @@ position = Vector2(1390, 935)
 
 [node name="Merchant" parent="." instance=ExtResource("9_merchant")]
 position = Vector2(885, 825)
+
+[node name="PawnKnife" parent="." instance=ExtResource("11_recruit")]
+position = Vector2(1240, 1010)
+visible = false
 
 [node name="MeleeEnemy1" parent="." groups=["bandits"] instance=ExtResource("4_melee")]
 position = Vector2(2760, 790)

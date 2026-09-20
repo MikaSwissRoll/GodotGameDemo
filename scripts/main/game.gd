@@ -24,12 +24,18 @@ const FREE_PLAY_SPAWNS := [
 ]
 const MELEE_ENEMY := preload("res://scenes/enemies/melee_enemy.tscn")
 const ARCHER_ENEMY := preload("res://scenes/enemies/archer_enemy.tscn")
+const FOLLOWER_SCENE := preload("res://scenes/party/follower.tscn")
+
+## What a companion costs to hire. One price, one currency: the same `gold` the
+## Merchant spends, so there is no second purse to keep in step.
+const COMPANION_PRICE := 25
 
 @onready var player: Player = $Player
 @onready var quest: QuestManager = $QuestManager
 @onready var progress: ClassicProgression = $ClassicProgression
 @onready var guard: VillageGuard = $VillageGuard
 @onready var merchant: Area2D = $Merchant
+@onready var pawn_knife: RecruitNpc = $PawnKnife
 @onready var ui: GameUI = $GameUI
 
 var gold: int = 0
@@ -39,6 +45,9 @@ var stamina_potions: int = 0
 var _free_play_active := false
 var _respawn_left := 0.0
 var _free_play_enemies: Array[Node] = []
+## The recruited companion, once hired. Null before that, which is also what makes
+## a second hire impossible: the recruit NPC is freed on success.
+var companion: Follower = null
 
 
 func _ready() -> void:
@@ -62,6 +71,10 @@ func _ready() -> void:
     player.died.connect(_on_player_died)
     guard.interacted.connect(_on_guard_interacted)
     merchant.interacted.connect(_on_merchant_interacted)
+    pawn_knife.interacted.connect(_on_pawn_knife_interacted)
+    ui.recruit_accepted.connect(_on_recruit_accepted)
+    ui.recruit_declined.connect(_on_recruit_declined)
+    ui.dismiss_requested.connect(_on_dismiss_requested)
     quest.quest_changed.connect(_on_quest_changed)
     quest.quest_completed.connect(_on_quest_completed)
     progress.changed.connect(_on_progress_changed)
@@ -392,6 +405,87 @@ func _on_main_quest_completed() -> void:
     _free_play_active = true
     _respawn_free_play_group()
     _respawn_left = respawn_delay
+    # Hiring opens only now. Before this the companion is not in the world at all,
+    # so there is nothing to talk to rather than a locked door to explain.
+    pawn_knife.activate()
+
+
+## ---- Companion recruitment -------------------------------------------------
+##
+## The transaction is atomic in one place: affordability is checked, gold is
+## deducted, the NPC is freed and the follower is created, all without yielding.
+## That is what makes a double hire impossible; there is no window in which the
+## player could confirm twice, and the node that offers the hire no longer exists
+## once it succeeds.
+
+func _on_pawn_knife_interacted() -> void:
+    # Two gates, deliberately: the recruit node is inert until free play, and this
+    # also refuses to act before then. The node gate alone would be enough in play,
+    # but hiring is the one unrepeatable transaction in Classic Mode, so it does not
+    # rely on a signal only ever arriving from the intended place.
+    if progress.phase != ClassicProgression.Phase.FREE_PLAY:
+        return
+    if companion != null:
+        # Already hired. The recruit node is gone by now, so this is only reachable
+        # through a stale reference, but it must still never charge again.
+        return
+    if gold < COMPANION_PRICE:
+        ui.show_recruit_notice("雇佣兵", "你现在的金币还不够。\n准备好 %d 枚金币再来找我吧。" % COMPANION_PRICE)
+        return
+    ui.show_recruit_offer(
+        "听说你解决了村外的麻烦。\n如果你还准备继续往外走，我可以和你一起。\n\n价格：%d 金币" % COMPANION_PRICE,
+        "雇佣 — %d 金币" % COMPANION_PRICE,
+        true)
+
+
+func _on_recruit_accepted() -> void:
+    if progress.phase != ClassicProgression.Phase.FREE_PLAY \
+            or companion != null or gold < COMPANION_PRICE:
+        # Refuse rather than half-commit: nothing has been spent at this point.
+        ui.hide_overlay()
+        get_tree().paused = false
+        return
+    gold -= COMPANION_PRICE
+    ui.set_gold(gold)
+    _hire_companion()
+    ui.hide_overlay()
+    get_tree().paused = false
+    ui.show_toast("雇佣兵：成交。接下来的路，我和你一起走。", 4.0)
+
+
+func _on_recruit_declined() -> void:
+    ui.hide_overlay()
+    get_tree().paused = false
+
+
+func _on_dismiss_requested() -> void:
+    ui.hide_overlay()
+    get_tree().paused = false
+
+
+## Turns the recruit standing in the village into the follower walking beside the
+## player. The NPC node is removed rather than hidden, so no duplicate pawn is left
+## behind and no interaction prompt survives on a unit that is no longer an NPC.
+func _hire_companion() -> void:
+    var spawn_at := pawn_knife.global_position
+    pawn_knife.queue_free()
+    companion = FOLLOWER_SCENE.instantiate() as Follower
+    add_child(companion)
+    companion.setup(player)
+    # Start from where he was standing so the transition does not pop him across
+    # the village; setup() already places him on the player's formation slot, so
+    # put him back at the stall and let the follow behaviour walk him over.
+    companion.global_position = spawn_at
+    companion.downed.connect(_on_companion_downed)
+    companion.revived.connect(_on_companion_revived)
+
+
+func _on_companion_downed() -> void:
+    ui.show_toast("雇佣兵倒下了，稍后会重新站起来。", 3.0)
+
+
+func _on_companion_revived() -> void:
+    ui.show_toast("雇佣兵重新站了起来。", 2.0)
 
 
 func _process(delta: float) -> void:
