@@ -1,5 +1,9 @@
 # Current task: Classic Mode progression
 
+**Status: complete.** All eleven phases are implemented and verified. The suites
+`classic_progression_smoke` and `free_play_spawn_smoke` cover the flow end to end,
+and all fourteen suites pass.
+
 ## Goal
 
 Extend Classic Mode progression from "spawn → fight → 试玩完成" into a four-phase
