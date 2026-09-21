@@ -28,14 +28,19 @@ func _grass_districts() -> void:
 
 func _architecture() -> void:
     # Dead centre of the forecourt: it spans cols 14-24, so x 896..1600 and its middle
-    # is x 1248. The foot sits on the terrace's own last surface row, which is what puts
-    # the collision (250x56) on rows 6-7 inside the forecourt.
+    # is x 1248.
     #
-    # It was moved off x 1216, which was half a tile west of centre - a leftover from
-    # when the forecourt was cols 15-23.
-    ENV.add_building(self, BLUE + "Castle.png", Vector2(1248, 480), 1.0,
+    # The foot is at y 352 - row 5.5 - which is two rows above where it started (480,
+    # the terrace's own last surface row). Its collision (250x56) is centred 28px above
+    # the foot, so it now covers rows 4-5 rather than 6-7.
+    #
+    # x was moved off 1216 earlier, which was half a tile west of centre - a leftover
+    # from when the forecourt was cols 15-23.
+    ENV.add_building(self, BLUE + "Castle.png", Vector2(1248, 352), 1.0,
         Vector2(250, 56), Vector2(1.7, 0.66))
-    ENV.add_building(self, BLUE + "Monastery.png", Vector2(1720, 510), 0.9,
+    # Moved +2 columns, from x 1720 to x 1848: floor(1720 / 64) = column 26 and
+    # floor(1848 / 64) = column 28, with the row left alone.
+    ENV.add_building(self, BLUE + "Monastery.png", Vector2(1848, 510), 0.9,
         Vector2(102, 46))
     var buildings := [
         ["House1", Vector2(790, 720)], ["House2", Vector2(745, 610)],
