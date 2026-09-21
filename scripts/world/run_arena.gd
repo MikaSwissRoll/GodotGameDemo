@@ -1,6 +1,7 @@
 extends Node2D
 
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
+const HIGH_GROUND := preload("res://scripts/world/high_ground.gd")
 const TERRAIN := [
     preload("res://asset/Terrain/Tileset/Tilemap_color1.png"),
     preload("res://asset/Terrain/Tileset/Tilemap_color2.png"),
@@ -8,6 +9,31 @@ const TERRAIN := [
     preload("res://asset/Terrain/Tileset/Tilemap_color4.png"),
     preload("res://asset/Terrain/Tileset/Tilemap_color5.png")
 ]
+
+## A small raised knoll on every expedition stage. Three tiles at most in either
+## direction, at a different place and size on each, and kept to the lower half of the
+## arena where the stage builders put no buildings.
+##
+## NO STAIR IS DECLARED and none is wanted. With no ramp the knoll is sealed by
+## construction: the wall spans its full width and all four edges carry collision. It is
+## a piece of terrain to look at, not somewhere to go. Add a `make_stair` entry here if
+## that ever changes - see HIGHGROUND_TILE_GRAMMAR.md section 6.1.
+##
+## Every rect is inside MainGround, `Rect2i(1, 1, 18, 10)`, so each knoll's wall row
+## lands on ground rather than over the water at the arena's edge.
+const KNOLL_RECTS := [
+    Rect2i(3, 7, 2, 2),
+    Rect2i(5, 6, 3, 2),
+    Rect2i(2, 4, 2, 3),
+    Rect2i(6, 7, 3, 3),
+    Rect2i(4, 3, 3, 2),
+    Rect2i(2, 6, 3, 2)
+]
+
+## The knoll's palette, chosen per stage to differ from BOTH the stage ground
+## (`terrain_indices`) and its landmark patch (`patch_indices`). Colour is how this pack
+## says "higher", so a knoll that matches the ground under it reads as a paint smudge.
+const KNOLL_TERRAIN := [2, 4, 2, 0, 2, 0]
 
 const BLUE := "res://asset/Buildings/Blue Buildings/"
 const RED := "res://asset/Buildings/Red Buildings/"
@@ -75,6 +101,12 @@ func _build_terrain() -> void:
     # painted as ordinary ground: no cliff row, no drop shadow, no collision wall,
     # and no entry in the elevation registry. Classic Mode keeps its plateaus.
     ENV.add_ground_rect(_stage_root, "LandmarkGround", TERRAIN[patch_index], patch, -18)
+    # The knoll is built last of the terrain so its surface draws over MainGround and
+    # the landmark patch. `build` declares and constructs in one call, which is safe
+    # here because a stage has exactly one high region - with more than one, every
+    # region must be declared before any is constructed.
+    HIGH_GROUND.build(_stage_root, "Knoll", TERRAIN[KNOLL_TERRAIN[stage]],
+        KNOLL_RECTS[stage])
     if stage != 0:
         for data in [
             [1, Vector2(40, 114), 0], [2, Vector2(1230, 128), 5],
