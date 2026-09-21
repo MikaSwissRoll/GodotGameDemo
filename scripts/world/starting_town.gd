@@ -55,6 +55,13 @@ func _architecture() -> void:
         ENV.add_building(self, BLUE + item[0] + ".png", item[1], 1.0,
             Vector2(86, 38))
 
+## The castle terrace was raised after these groves were laid out, so several of their
+## trees ended up standing on the high ground or in the mouth of its two entrances -
+## and every tree here carries collision, so they block the way up. Nothing is planted
+## inside this box: the terrace's columns and rows, plus the stair rows below it.
+const TERRACE_KEEPOUT := Rect2i(13, 0, 13, 10)
+
+
 func _groves() -> void:
     var clusters := [Vector2(470, 380), Vector2(670, 280), Vector2(800, 360),
         Vector2(1540, 240), Vector2(1900, 290), Vector2(2150, 320),
@@ -64,8 +71,13 @@ func _groves() -> void:
         for j in 4:
             var at: Vector2 = clusters[index] + [Vector2.ZERO, Vector2(85, -24),
                 Vector2(-55, 68), Vector2(64, 100)][j]
+            if TERRACE_KEEPOUT.has_point(Elevation.tile_of(at)):
+                continue
             ENV.add_tree(self, (index + j) % 4 + 1, at, 0.85, true, index + j)
-        ENV.add_bush(self, index % 4 + 1, clusters[index] + Vector2(12, 100), 0.75, index)
+        var bush_at: Vector2 = clusters[index] + Vector2(12, 100)
+        if TERRACE_KEEPOUT.has_point(Elevation.tile_of(bush_at)):
+            continue
+        ENV.add_bush(self, index % 4 + 1, bush_at, 0.75, index)
     for index in 18:
         var at := Vector2(670 + index * 80, 1080 + (index % 3) * 30)
         if index in [4, 5, 6, 7, 8, 12, 13]:

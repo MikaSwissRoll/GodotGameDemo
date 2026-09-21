@@ -96,9 +96,14 @@ func _build_terrain() -> void:
     # They are declared against the FORECOURT, so each occupies the two rows beside
     # its last surface row and its wall row. That is what opens the side boundary at
     # exactly one column while the south wall itself stays continuous.
+    # Rows 6-7 - the two rows above the wall row - so each stair's foot lands on the
+    # terrace's own last surface row and its crossing includes that row. Including it is
+    # what opens the side boundary at the stair's column: the wall builder skips a
+    # boundary band where the tile is a ramp, and the level only flips when an actor
+    # steps off the stair onto the terrace's own surface.
     var stairs := [
-        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true),
-        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false),
+        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true, -2),
+        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false, -2),
     ]
     # GRASS_3 is a clearly different palette from the village's GRASS_1: raising the
     # ground has to be obvious at a glance, and colour is how the pack says it.

@@ -72,23 +72,43 @@ const STAIR_COL_ASCENDING_EAST := 0
 const STAIR_COL_ASCENDING_WEST := 3
 
 ## A stair spans two rows: the grass row and the wall row.
+## A stair is two rows tall and one column wide. The official unit; do not widen it.
 const STAIR_ROWS := 2
+
+## Where a stair's two rows start, as an offset from the footprint's last row - which is
+## the wall row. -1 puts the stair on the terrace's own last surface row and the wall
+## row; -2 puts it on the two rows above those.
+##
+## This is per stair, not a global convention: different regions want their entrances at
+## different heights, and a shared value silently moves every scene's stairs at once.
+##
+## Whichever value is used, the terrace's own last surface row has to fall inside the
+## stair's rows. The level only flips when an actor steps off the stair onto that
+## surface, and the wall builder opens a side boundary on ramp tiles - a stair that
+## missed that row would leave the terrace walled off.
+const STAIR_DEFAULT_TOP_ROW_OFFSET := -1
 
 
 ## One legal entrance, one column wide.
 ##
 ## `ascending_east` picks the piece: true is the stair that climbs from west to east
 ## (its low ground is to the west), false is its mirror.
-static func make_stair(column: int, ascending_east: bool) -> Dictionary:
+static func make_stair(
+    column: int,
+    ascending_east: bool,
+    top_row_offset: int = STAIR_DEFAULT_TOP_ROW_OFFSET
+) -> Dictionary:
     return {
         "column": column,
         "ascending_east": ascending_east,
+        "top_row_offset": top_row_offset,
     }
 
 
 ## The two tile rows a stair occupies, given the footprint's last row.
 static func stair_rect(stair: Dictionary, last_row: int) -> Rect2i:
-    return Rect2i(int(stair["column"]), last_row - 1, 1, STAIR_ROWS)
+    var offset := int(stair.get("top_row_offset", STAIR_DEFAULT_TOP_ROW_OFFSET))
+    return Rect2i(int(stair["column"]), last_row + offset, 1, STAIR_ROWS)
 
 
 ## Register a region and its stairs with the elevation field, without building it.
@@ -276,9 +296,10 @@ static func _paint_stairs(
             else STAIR_COL_ASCENDING_WEST
         # Atlas r4 is the piece's upper row and r5 its lower, so the upper half lands
         # on the lip row and the lower half on the wall row.
-        layer.set_cell(Vector2i(column, last_row - 1), 0,
+        var top_row := last_row + int(stair.get("top_row_offset", STAIR_DEFAULT_TOP_ROW_OFFSET))
+        layer.set_cell(Vector2i(column, top_row), 0,
             Vector2i(atlas_column, ROW_WALL))
-        layer.set_cell(Vector2i(column, last_row), 0,
+        layer.set_cell(Vector2i(column, top_row + 1), 0,
             Vector2i(atlas_column, ROW_WALL_WATER))
 
 
