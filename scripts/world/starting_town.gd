@@ -82,6 +82,17 @@ func _groves() -> void:
         if index in [4, 5, 6, 7, 8, 12, 13]:
             continue
         ENV.add_bush(self, index % 4 + 1, at, 0.65, index)
+    # Two trees stand at the foot of the castle stairs, one below each entrance, at the
+    # centre of tile (13, 8) and tile (25, 8).
+    #
+    # They are placed AFTER the loops on purpose. They sit inside `TERRACE_KEEPOUT`, the
+    # same box the loop above now skips, and they are here because they were asked for -
+    # not because the skip missed them. A reader who finds them inside a keepout box and
+    # deletes them as a bug would be undoing a deliberate placement.
+    for index in 2:
+        var spot: Vector2 = [Vector2(864.0, 544.0), Vector2(1632.0, 544.0)][index]
+        ENV.add_tree(self, 1, spot, 0.85, true, 40 + index)
+
     for item in [[Vector2(960, 450), 2], [Vector2(1510, 530), 1],
         [Vector2(1820, 920), 3], [Vector2(680, 1010), 4], [Vector2(1310, 1190), 2]]:
         ENV.add_static_prop(self, "res://asset/Terrain/Decorations/Rocks/Rock%d.png" % item[1], item[0])
