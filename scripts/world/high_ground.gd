@@ -19,35 +19,34 @@ class_name HighGround
 
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 
-## Atlas columns of the grass (草地块) set: left edge, middle, right edge.
+## Atlas columns of the grass (????? set: left edge, middle, right edge.
 const ATLAS_LEFT := 5
 const ATLAS_MIDDLE := 6
 const ATLAS_RIGHT := 7
 
-## Atlas rows of the grass set. r0 carries the lit rim, r3 is the last grass row and
-## the cliff lip.
+## Atlas rows of the grass set. Only the rim and the interior are used.
+##
+## Row 3 is deliberately unused: it is a free-standing strip with a ragged fringe on
+## its top as well as its bottom, so putting it anywhere inside a region paints a seam
+## across the middle of the terrace.
 const ROW_RIM := 0
 const ROW_INTERIOR := 1
-const ROW_LIP := 3
 
 ## The wall row. r4 and r5 are ALTERNATIVES, not two courses: r4 for a wall over
 ## land, r5 for a wall over water. Drawing both stacks a waterline under dry ground.
 const ROW_WALL := 4
 const ROW_WALL_WATER := 5
 
-## Atlas columns of the two official stairs, identified by MEASURED appearance rather
-## than by the legend's panel order.
+## Atlas columns of the two official stairs.
 ##
-## Magnified at 4x, `c3 x r4-r5` is stone on its left and grass on its right, so its
-## raised side is east and it is the stair you climb from west to east. `c0` is its
-## mirror: grass on the left, raised side west, climbed from east to west.
-##
-## This matters at a wall's end. The west stair stands where the low ground is to the
-## west, so its raised side has to face east - that is `c3`, not `c0`.
-const STAIR_COL_ASCENDING_EAST := 3
-const STAIR_COL_ASCENDING_WEST := 0
+## Magnified at 4x the two are mirror images. Reported from the rendered result and
+## not re-derived here: an earlier revision swapped these on a reading of the atlas
+## that did not survive being compared against the pack's own example map. Change them
+## only against a capture, never against the tile sheet alone.
+const STAIR_COL_ASCENDING_EAST := 0
+const STAIR_COL_ASCENDING_WEST := 3
 
-## A stair spans two rows: the lip row and the wall row.
+## A stair spans two rows: the grass row and the wall row.
 const STAIR_ROWS := 2
 
 
@@ -92,7 +91,7 @@ static func construct(
     footprint: Rect2i,
     stairs: Array = [],
     wall_over_water: bool = false,
-    edge_art: bool = false
+    edge_art: bool = true
 ) -> TileMapLayer:
     var region := _normalize(footprint)
     var surface := _paint_surface(parent, region_name, texture, region, edge_art)
@@ -111,7 +110,7 @@ static func build(
     footprint: Rect2i,
     stairs: Array = [],
     wall_over_water: bool = false,
-    edge_art: bool = false
+    edge_art: bool = true
 ) -> TileMapLayer:
     declare(footprint, stairs)
     return construct(parent, region_name, texture, footprint, stairs, wall_over_water, edge_art)
@@ -122,26 +121,26 @@ static func _normalize(footprint: Rect2i) -> Rect2i:
         Vector2i(maxi(footprint.size.x, 1), maxi(footprint.size.y, 1)))
 
 
-## Row 0 is the lit rim, the last row is the cliff lip, everything between is
-## interior.
+## The surface is the grass set's SQUARE, repeated: r0 for the top row and r1 for
+## everything else.
 ##
-## The lip row always applies: it is the row that meets the wall. The rim is only
-## drawn when `edge_art` is on, because a rim next to more ground is a false edge -
-## it draws a lit border and a ragged fringe along the top of what is continuous
-## terrain.
-static func _row_for(tile: Vector2i, local_y: int, height: int, edge_art: bool) -> int:
-    if height <= 1:
-        return ROW_LIP
-    if local_y == height - 1 and not Elevation.is_high_tile(tile + Vector2i(0, 1)):
-        return ROW_LIP
+## r3 is deliberately NOT used. It is a free-standing strip with a ragged fringe on
+## its TOP as well as its bottom, so using it as the last row paints a seam and a
+## change of tone straight across the middle of the terrace - which reads as a band of
+## high ground rather than a raised area. The junction with the wall is already
+## handled by the wall's own tile, whose top edge carries the grass overhang.
+##
+## The rim (r0) is only drawn on a top row that faces exposed ground; mid-region it
+## would invent an edge.
+static func _row_for(tile: Vector2i, local_y: int, edge_art: bool) -> int:
     if edge_art and local_y == 0 and not Elevation.is_high_tile(tile + Vector2i(0, -1)):
         return ROW_RIM
     return ROW_INTERIOR
 
 
-## Left and right edge art only when `edge_art` is on. Otherwise the sides are
-## interior, so the ground runs seamlessly into whatever is beside it and the colour
-## step - not a fringe - is what says "this is higher".
+## Left and right edge art, so the high ground has a visible seam against the ordinary
+## ground beside it. Without it the two greens simply meet and the terrace reads as a
+## stripe of a different colour rather than as a place.
 static func _column_for(tile: Vector2i, local_x: int, width: int, edge_art: bool) -> int:
     if not edge_art or width <= 1:
         return ATLAS_MIDDLE
@@ -165,7 +164,7 @@ static func _paint_surface(
             var tile := region.position + Vector2i(local_x, local_y)
             layer.set_cell(tile, 0,
                 Vector2i(_column_for(tile, local_x, region.size.x, edge_art),
-                    _row_for(tile, local_y, region.size.y, edge_art)))
+                    _row_for(tile, local_y, edge_art)))
     return layer
 
 
