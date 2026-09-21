@@ -375,7 +375,10 @@ func _finish_run(won: bool) -> void:
     var results: Array[String] = []
     results.append("用时            %d:%02d" % [
         floori(run_seconds / 60.0), int(run_seconds) % 60])
-    results.append("造成伤害        %d" % RunStats.damage_dealt)
+    # Both directions, and labelled by direction: "damage" alone does not say whose.
+    # Damage taken counts only what cost health - a guarded hit is free.
+    results.append("对敌伤害        %d" % RunStats.damage_dealt)
+    results.append("受到伤害        %d" % RunStats.damage_taken)
     results.append("击败            %d 人" % kills)
     results.append("获得金币        %d" % gold_earned)
     results.append("本局战技        %s" % (" · ".join(names) if not names.is_empty() else "无"))

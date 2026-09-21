@@ -24,17 +24,25 @@ extends RefCounted
 ## nothing displays it.
 
 static var damage_dealt := 0
+## Damage the player actually lost health to. A guarded hit costs stamina and no health,
+## so it is not counted - see `Player.take_damage`.
+static var damage_taken := 0
 ## One entry per purchase, in the order they were made: `{"what": String, "price": int}`.
 static var purchases: Array[Dictionary] = []
 
 
 static func reset() -> void:
 	damage_dealt = 0
+	damage_taken = 0
 	purchases.clear()
 
 
 static func record_damage(amount: int) -> void:
 	damage_dealt += maxi(amount, 0)
+
+
+static func record_damage_taken(amount: int) -> void:
+	damage_taken += maxi(amount, 0)
 
 
 static func record_purchase(what: String, price: int) -> void:

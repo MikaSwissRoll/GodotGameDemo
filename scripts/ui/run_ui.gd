@@ -34,7 +34,7 @@ const MODAL_MIN_HEIGHT := 358.0
 ## BELOW the MODAL_BUTTON_TOP baseline the rows are offset from, so the usable height is
 ## `RESULTS_BLOCK_HEIGHT - (142 - MODAL_BUTTON_TOP) - gap` and not the block height.
 ## Sizing it as `block - 12` overlapped the first button by 20px.
-const RESULTS_BLOCK_HEIGHT := 320.0
+const RESULTS_BLOCK_HEIGHT := 352.0
 const RESULTS_TOP_GAP := 56.0
 # Button indices that cancel progress, per docs/art/UI_VISUAL_RULES.md: quitting
 # or abandoning a run takes the red destructive state, matching the main menu's

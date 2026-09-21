@@ -668,6 +668,10 @@ func take_damage(amount: int, source_direction: Vector2) -> void:
         attack_blocked.emit()
         return
     health = maxi(0, health - amount)
+    # The run's "damage taken" counter. Recorded here rather than at the top of the
+    # function on purpose: a guarded hit returns above without costing any health, and
+    # counting it would report damage the player never took.
+    RunStats.record_damage_taken(amount)
     _invulnerability_left = 0.6
     _flash_left = 0.2
     _shake_left = 0.18

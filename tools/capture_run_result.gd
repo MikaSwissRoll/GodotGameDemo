@@ -6,7 +6,8 @@ extends SceneTree
 ##
 ##   godot --path . --script res://tools/capture_run_result.gd
 ##
-## Both outputs are kept in screenshots/visual_qa as references for the screen.
+## Both outputs land in screenshots/visual_qa, which is gitignored - re-run this rather
+## than expecting the PNGs to be in the repository.
 
 const SCENE := "res://scenes/main/run_game.tscn"
 const OUT := "res://screenshots/visual_qa/run_result_%s.png"
@@ -32,12 +33,15 @@ func _run() -> void:
         node.emit_signal("start_requested")
     await _frames(8)
 
-    # A plausible finished run, so the screen is judged with real-length content.
+    # A plausible finished run, so the screen is judged with real-length content: a
+    # three-entry purchase list is the longest the report has to hold without capping.
     RunStats.record_damage(137)
     RunStats.record_damage(66)
-    RunStats.record_purchase("??????", 3)
-    RunStats.record_purchase("??????", 3)
-    RunStats.record_purchase("???????????, 5)
+    RunStats.record_damage_taken(38)
+    RunStats.record_damage_taken(50)
+    RunStats.record_purchase("生命药水", 3)
+    RunStats.record_purchase("精力药水", 3)
+    RunStats.record_purchase("战技：致命一击", 5)
     game.set("run_seconds", 214.0)
     game.set("kills", 7)
     game.set("gold_earned", 26)
