@@ -67,13 +67,13 @@ func _run() -> void:
         "the terrace surface must register as HIGH")
     check_eq(Elevation.level_at(Vector2(STAIR_WEST_X, LOW_GROUND_Y)), Elevation.LOW,
         "the village ground below the wall must register as LOW")
-    check(Elevation.is_ramp_tile(Vector2i(14, 7)), "the west stair's upper row must be registered")
-    check(Elevation.is_ramp_tile(Vector2i(14, 8)), "the west stair's lower row must be registered")
-    check(Elevation.is_ramp_tile(Vector2i(24, 8)), "the east stair's lower row must be registered")
-    check(not Elevation.is_ramp_tile(Vector2i(15, 8)), "a stair must be exactly one column wide")
-    check(Elevation.levels_are_connected(), "the terrace must be reachable through its stairs")
-
-    await _check_both_stairs_climb()
+    # The terrace currently carries NO stairs. Whether it does or not changes what the
+    # right invariant is, so the suite states both rather than being skipped: with
+    # stairs, they must carry the player up; without, the terrace must be sealed.
+    if Elevation.levels_are_connected():
+        await _check_both_stairs_climb()
+    else:
+        await _check_the_terrace_is_sealed()
     await _check_the_wall_blocks_elsewhere()
     await _check_the_lip_blocks_from_above()
 
@@ -103,6 +103,28 @@ func _walk(action: String, frames: int) -> void:
 ## movement in the intended direction: a player spawned inside a house is pushed out
 ## by the physics engine, and counting that as movement would let a bad probe
 ## masquerade as a working one.
+## With no stair declared, the terrace is sealed: the wall spans its full width and all
+## four edges carry collision. That is the invariant to assert instead of climbing.
+##
+## The side probes stand one column clear of the wall body itself, because standing
+## inside it would have the physics engine eject the player and prove nothing.
+func _check_the_terrace_is_sealed() -> void:
+    section("the terrace is sealed")
+    check(not Elevation.levels_are_connected(), "setup: no stair should be declared")
+    for probe in [
+        {"at": Vector2(1120.0, LOW_GROUND_Y), "action": "move_up", "side": "the south"},
+        {"at": Vector2(860.0, STAIR_APPROACH_Y), "action": "move_right", "side": "the west side"},
+        {"at": Vector2(1620.0, STAIR_APPROACH_Y), "action": "move_left", "side": "the east side"},
+    ]:
+        await _place(probe["at"])
+        check_eq(Elevation.level_at(_player.global_position), Elevation.LOW,
+            "setup: should start LOW on %s" % probe["side"])
+        await _walk(probe["action"], 90)
+        check_eq(Elevation.level_at(_player.global_position), Elevation.LOW,
+            "the player reached the terrace from %s with no stair (ended at %s)" % [
+                probe["side"], _player.global_position.round()])
+
+
 func _check_both_stairs_climb() -> void:
     section("both stairs are a way up")
     for probe in [

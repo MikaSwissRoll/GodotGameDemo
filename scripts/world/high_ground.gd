@@ -19,7 +19,7 @@ class_name HighGround
 
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 
-## Atlas columns of the grass (????? set: left edge, middle, right edge.
+## Atlas columns of the grass block set: left edge, middle, right edge.
 const ATLAS_LEFT := 5
 const ATLAS_MIDDLE := 6
 const ATLAS_RIGHT := 7
@@ -54,15 +54,10 @@ const STAIR_ROWS := 2
 ##
 ## `ascending_east` picks the piece: true is the stair that climbs from west to east
 ## (its low ground is to the west), false is its mirror.
-static func make_stair(
-    column: int,
-    ascending_east: bool,
-    wood_steps: bool = false
-) -> Dictionary:
+static func make_stair(column: int, ascending_east: bool) -> Dictionary:
     return {
         "column": column,
         "ascending_east": ascending_east,
-        "wood_steps": wood_steps,
     }
 
 
@@ -260,65 +255,6 @@ static func _paint_stairs(
             Vector2i(atlas_column, ROW_WALL))
         layer.set_cell(Vector2i(column, last_row), 0,
             Vector2i(atlas_column, ROW_WALL_WATER))
-        if bool(stair.get("wood_steps", false)):
-            _add_wood_steps(parent, region_name, column, last_row, bool(stair["ascending_east"]))
-
-
-## Add scene-specific wooden treads over the official grass slope.
-##
-## Tiny Swords has no separate wooden stair texture in this asset set. The grass
-## slope remains underneath and still defines the terrain silhouette; these small
-## pixel-aligned polygons only make a town entrance read as a maintained staircase.
-static func _add_wood_steps(
-    parent: Node,
-    region_name: String,
-    column: int,
-    last_row: int,
-    ascending_east: bool
-) -> void:
-    var steps := Node2D.new()
-    steps.name = region_name + ("WestWoodSteps" if ascending_east else "EastWoodSteps")
-    steps.z_index = -14
-    parent.add_child(steps)
-
-    var tile_left := float(column) * Elevation.TILE
-    var tile_top := float(last_row - 1) * Elevation.TILE
-    for index in 7:
-        var center_x := tile_left + Elevation.TILE * 0.5
-        var center_y := tile_top + 6.0 + float(index) * 17.0
-        _add_step_board(steps, Vector2(center_x, center_y))
-
-
-static func _add_step_board(parent: Node2D, center: Vector2) -> void:
-    var shadow := Polygon2D.new()
-    shadow.polygon = PackedVector2Array([
-        center + Vector2(-19.0, -5.0),
-        center + Vector2(19.0, -5.0),
-        center + Vector2(19.0, 5.0),
-        center + Vector2(-19.0, 5.0),
-    ])
-    shadow.color = Color("#49372f")
-    parent.add_child(shadow)
-
-    var board := Polygon2D.new()
-    board.polygon = PackedVector2Array([
-        center + Vector2(-16.0, -3.0),
-        center + Vector2(16.0, -3.0),
-        center + Vector2(16.0, 3.0),
-        center + Vector2(-16.0, 3.0),
-    ])
-    board.color = Color("#b97848")
-    parent.add_child(board)
-
-    var highlight := Polygon2D.new()
-    highlight.polygon = PackedVector2Array([
-        center + Vector2(-14.0, -3.0),
-        center + Vector2(14.0, -3.0),
-        center + Vector2(14.0, -1.0),
-        center + Vector2(-14.0, -1.0),
-    ])
-    highlight.color = Color("#dda060")
-    parent.add_child(highlight)
 
 
 ## Movement collision for every edge, split around the stair openings.

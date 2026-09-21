@@ -85,21 +85,22 @@ func _build_terrain() -> void:
     # Now the surface, the one wall row, the collision on all four edges and the two
     # stairs all come from one builder, so the drawn drop and the blocking edge cannot
     # drift apart.
-    var stairs := [
-        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true, true),
-        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false, true),
-    ]
+    # NO STAIRS. A placeholder is built inside a room, so nothing needs to get through
+    # it yet. A region with no declared stair is sealed by construction: the wall
+    # spans its full width and all four edges carry collision.
+    #
+    # The wooden-tread variant that stood here has been removed too - it was an
+    # invented construction over the official grass slope, not something the asset
+    # pack provides.
     # GRASS_3 is a clearly different palette from the village's GRASS_1: raising the
     # ground has to be obvious at a glance, and colour is how the pack says it.
-    # The composite region uses the atlas's stone-edged outer cells. Each piece checks
-    # the complete elevation field, so the shared seams stay clean while the true
-    # north/east/west outline receives the visible border requested by the scene.
+    #
     # Declare the complete union first. Constructing a piece before its neighbours
     # are known would wall the internal seams and split one terrace into four.
     HIGH_GROUND.declare(CASTLE_NORTH_TERRACE)
     HIGH_GROUND.declare(CASTLE_WEST_SHOULDER)
     HIGH_GROUND.declare(CASTLE_EAST_SHOULDER)
-    HIGH_GROUND.declare(CASTLE_TERRACE, stairs)
+    HIGH_GROUND.declare(CASTLE_TERRACE)
     HIGH_GROUND.construct(_art, "CastleNorthTerrace", GRASS_3,
         CASTLE_NORTH_TERRACE, [], false, true)
     HIGH_GROUND.construct(_art, "CastleWestShoulder", GRASS_3,
@@ -107,7 +108,7 @@ func _build_terrain() -> void:
     HIGH_GROUND.construct(_art, "CastleEastShoulder", GRASS_3,
         CASTLE_EAST_SHOULDER, [], false, true)
     HIGH_GROUND.construct(_art, "CastleTerrace", GRASS_3,
-        CASTLE_TERRACE, stairs, false, true)
+        CASTLE_TERRACE, [], false, true)
     # Continuous lowland lets roads and grouped scenery describe the village.
     #
     # CampRise is NOT migrated yet: it still uses the old builder through the
