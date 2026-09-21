@@ -272,9 +272,12 @@ func _on_shop_closed() -> void:
 ##
 ## They are spoken on close rather than from inside the shop because the overlay hides
 ## the NPC line panel: anything said while it is open is never seen.
+##
+## NOT gated on still being in MERCHANT_TUTORIAL. The hand-in runs BEFORE the shop opens
+## and advances the phase to MAIN_QUEST, so by the time the shop closes - which is when
+## this runs - the tutorial phase is already over. Gating on it meant the "go and see the
+## Guard" line could never fire.
 func _supply_tutorial_nudge() -> void:
-    if progress.phase != ClassicProgression.Phase.MERCHANT_TUTORIAL:
-        return
     if not progress.merchant_tutorial_done():
         if progress.bought_health and progress.bought_stamina \
                 and not progress.used_health and not progress.used_stamina:
