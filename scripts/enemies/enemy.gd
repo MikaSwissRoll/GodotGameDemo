@@ -10,6 +10,12 @@ const RED_WARRIOR := "res://asset/Units/Red Units/Warrior/"
 signal defeated(at: Vector2)
 signal health_changed(current: int, maximum: int)
 
+## The movement circle in the enemy scenes matches the player's: radius 10 centred
+## at (0, -10), bottom on the feet. Both sheets keep their visible feet within 6px
+## of the origin (tools/sprite_feet_audit.gd), so enemies stop at visible cliff and
+## wall edges like the player does instead of floating short of them. Combat uses
+## the separate hurt and attack shapes, so spacing is unaffected.
+
 @export var max_health: int = 75
 @export var move_speed: float = 125.0
 @export var damage: int = 12

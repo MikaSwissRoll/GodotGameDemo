@@ -7,6 +7,15 @@ const UI := preload("res://scripts/ui/tiny_swords_ui.gd")
 const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const BLUE_WARRIOR := "res://asset/Units/Blue Units/Warrior/"
 
+## The movement circle in player.tscn is foot-sized on purpose: radius 10 centred
+## at (0, -10), so its bottom sits on the feet. The visible feet stay within 6px of
+## the origin in every idle/run frame (measured in tools/sprite_feet_audit.gd), so
+## the player stops AT visible edges - cliffs, walls, buildings - instead of 18-24px
+## short of them. The old torso-sized circle (r=18 at the origin) read as an
+## invisible wall wherever an edge has no drawn face, most painfully the north edge
+## of high ground (HIGHGROUND_TILE_GRAMMAR.md section 3). Attack, hurt and dash
+## shapes are separate and were not touched.
+
 signal health_changed(current: int, maximum: int)
 signal stamina_changed(current: float, maximum: float)
 signal stamina_boost_changed(remaining: float)
