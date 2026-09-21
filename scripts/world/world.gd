@@ -85,13 +85,17 @@ func _build_terrain() -> void:
     # Now the surface, the one wall row, the collision on all four edges and the two
     # stairs all come from one builder, so the drawn drop and the blocking edge cannot
     # drift apart.
-    # NO STAIRS. A placeholder is built inside a room, so nothing needs to get through
-    # it yet. A region with no declared stair is sealed by construction: the wall
-    # spans its full width and all four edges carry collision.
+    # Two side entrances, in the low-ground notches immediately outside the ends of
+    # the forecourt's south wall: column 14 climbs west to east, column 24 climbs east
+    # to west, so each one's raised side faces the terrace.
     #
-    # The wooden-tread variant that stood here has been removed too - it was an
-    # invented construction over the official grass slope, not something the asset
-    # pack provides.
+    # They are declared against the FORECOURT, so each occupies the two rows beside
+    # its last surface row and its wall row. That is what opens the side boundary at
+    # exactly one column while the south wall itself stays continuous.
+    var stairs := [
+        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true),
+        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false),
+    ]
     # GRASS_3 is a clearly different palette from the village's GRASS_1: raising the
     # ground has to be obvious at a glance, and colour is how the pack says it.
     #
@@ -100,7 +104,7 @@ func _build_terrain() -> void:
     HIGH_GROUND.declare(CASTLE_NORTH_TERRACE)
     HIGH_GROUND.declare(CASTLE_WEST_SHOULDER)
     HIGH_GROUND.declare(CASTLE_EAST_SHOULDER)
-    HIGH_GROUND.declare(CASTLE_TERRACE)
+    HIGH_GROUND.declare(CASTLE_TERRACE, stairs)
     HIGH_GROUND.construct(_art, "CastleNorthTerrace", GRASS_3,
         CASTLE_NORTH_TERRACE, [], false, true)
     HIGH_GROUND.construct(_art, "CastleWestShoulder", GRASS_3,
@@ -108,7 +112,7 @@ func _build_terrain() -> void:
     HIGH_GROUND.construct(_art, "CastleEastShoulder", GRASS_3,
         CASTLE_EAST_SHOULDER, [], false, true)
     HIGH_GROUND.construct(_art, "CastleTerrace", GRASS_3,
-        CASTLE_TERRACE, [], false, true)
+        CASTLE_TERRACE, stairs, false, true)
     # Continuous lowland lets roads and grouped scenery describe the village.
     #
     # CampRise is NOT migrated yet: it still uses the old builder through the
