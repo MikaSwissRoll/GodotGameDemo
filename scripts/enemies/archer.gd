@@ -91,22 +91,16 @@ func _physics_process(delta: float) -> void:
     if _shooting:
         velocity = _knockback
     elif not same_level:
-        if distance >= detection_range and Elevation.levels_are_connected():
-            # Out of range and one level away: take the ramp to close the distance
-            # rather than standing still forever.
-            var waypoint := Elevation.route_point(global_position, target.global_position)
-            var to_waypoint := waypoint - global_position
-            if to_waypoint.length() > 1.0:
-                velocity = to_waypoint.normalized() * move_speed + _knockback
-                if sprite.animation != "run":
-                    sprite.play("run")
-            else:
-                velocity = _knockback
-        else:
-            # In range, or no route: hold position and keep shooting. Standing still
-            # is a stable state, not a freeze - a cliff cannot be walked up.
-            velocity = _knockback
-            if sprite.animation != "idle" and not _shooting:
+        # Hold position. An archer that can shoot across the level does not need to
+        # move, and one whose target is out of range should stay put rather than set
+        # off across the map.
+        #
+        # It used to walk toward the ramp whenever the target was beyond firing range
+        # and any ramp existed anywhere in the world. Combined with unbounded target
+        # acquisition that made every archer on the map set off the moment the player
+        # stepped onto high ground.
+        velocity = _knockback
+        if sprite.animation != "idle" and not _shooting:
                 sprite.play("idle")
     elif distance < detection_range and distance < preferred_range * 0.65:
         velocity = -direction * move_speed + _knockback
@@ -165,7 +159,7 @@ func _is_target_valid(candidate: Node2D) -> bool:
 ## excluded: they are not party members and must stay safe.
 func _nearest_party_actor() -> Node2D:
     var best: Node2D = null
-    var best_distance := INF
+    var best_distance := detection_range
     for node in get_tree().get_nodes_in_group("party"):
         if not _is_target_valid(node):
             continue

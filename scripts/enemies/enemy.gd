@@ -189,7 +189,12 @@ func _is_target_valid(candidate: Node2D) -> bool:
 ## Guard or the Merchant: they are friendly, not party members, and must stay safe.
 func _nearest_party_actor() -> Node2D:
     var best: Node2D = null
-    var best_distance := INF
+    # Bounded by detection_range. It used to be INF, so every enemy on the map
+    # permanently held the player as its target no matter how far away they were.
+    # That was harmless only while the movement branches were the only thing acting on
+    # `target`; the moment routing also acted on it, the whole map charged the instant
+    # the player stepped onto high ground.
+    var best_distance := detection_range
     for node in get_tree().get_nodes_in_group("party"):
         if not _is_target_valid(node):
             continue
@@ -197,12 +202,14 @@ func _nearest_party_actor() -> Node2D:
         if distance < best_distance:
             best_distance = distance
             best = node
-    # Fall back to the player if nothing has registered in the party group yet,
-    # so an enemy is never left without a target in an existing scene.
+    # Fall back to the player if nothing has registered in the party group yet, so an
+    # enemy is never left without a target in an existing scene. Range-gated too: with
+    # no target in reach, having no target is the correct state, not a problem to fix.
     if best == null:
         var player := get_tree().get_first_node_in_group("player") as Player
         if player != null and not player.is_dead():
-            best = player
+            if global_position.distance_to(player.global_position) <= detection_range:
+                best = player
     return best
 
 
@@ -242,11 +249,20 @@ func _start_attack() -> void:
 func _update_cliff_hold(delta: float, same_level: bool) -> bool:
     if same_level:
         return false
-    # A declared ramp is a route, so take it. The enemy used to back away from the
-    # cliff, wait out the retry pause, and then fall into the idle branch forever -
-    # the pause was never actually followed by a retry, so an enemy whose target was
-    # one level up simply stood still and looked broken.
-    if Elevation.levels_are_connected():
+    var to_target := target.global_position - global_position
+    # A declared ramp is a route, so take it - but only for a target this enemy is
+    # actually engaged with.
+    #
+    # The distance gate is the whole point. `route_point` answers "which way", not
+    # "whether to go"; letting the mere existence of a ramp answer the second question
+    # meant that the moment the player stepped onto high ground, every enemy on the
+    # map was on a different level from its target and charged from across the world.
+    #
+    # The gate is on STRAIGHT-LINE distance while the route itself may be long. That
+    # is deliberate: a player standing on the terrace above does not get further away
+    # as the enemy walks along the wall to the ramp, so an engaged enemy follows all
+    # the way up instead of giving up halfway.
+    if Elevation.levels_are_connected() and to_target.length() <= detection_range:
         var waypoint := Elevation.route_point(global_position, target.global_position)
         var to_waypoint := waypoint - global_position
         if to_waypoint.length() > 1.0:
@@ -258,10 +274,9 @@ func _update_cliff_hold(delta: float, same_level: bool) -> bool:
             _run()
             move_and_slide()
             return true
-    # No ramp joins the levels, so the target is genuinely out of reach. Back clear
-    # of the cliff and wait; this is a stable state, not a freeze, and it is only
-    # reached when there is no route at all.
-    var to_target := target.global_position - global_position
+    # No route worth taking: either no ramp joins the levels, or the target is beyond
+    # this enemy's reach and it should not be walking anywhere. Back clear of the cliff
+    # and wait; this is a stable state, not a freeze.
     var away := -to_target
     if away.length() < 1.0:
         away = Vector2.DOWN

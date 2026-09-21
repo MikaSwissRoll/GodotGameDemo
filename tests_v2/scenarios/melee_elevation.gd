@@ -21,6 +21,8 @@ const LOW_POINT := Vector2(640.0, 450.0)
 ## Clear of both stair openings, so a bandit here cannot stumble up one.
 const RAMP_APPROACH := Vector2(400.0, 420.0)
 const AWAY_FROM_STAIRS := Vector2(640.0, 420.0)
+## Well outside detection_range (520) from HIGH_POINT, on the low ground.
+const FAR_LOW_POINT := Vector2(1180.0, 660.0)
 
 var _lab: Node2D
 var _player: Player
@@ -64,9 +66,43 @@ func _run() -> void:
     await _check_cross_level_targets_are_unreachable_to_melee_followers()
     await _check_archer_fires_across_elevation()
     await _check_melee_navigates_through_the_ramp()
+    await _check_distant_enemies_are_not_drawn_in()
     await _check_no_route_holds_instead_of_freezing()
 
     finish(SUITE)
+
+
+## The regression check for the reported bug: the player steps onto the high ground
+## and every enemy on the map sets off for a ramp.
+##
+## The router answers "which way", never "whether". Engagement is bounded by
+## detection_range, so an enemy that never engaged does not move at all - whatever the
+## levels are.
+func _check_distant_enemies_are_not_drawn_in() -> void:
+    section("a distant enemy is not drawn in by the high ground")
+    await _place(_player, HIGH_POINT)
+    check_eq(Elevation.level_at(_player.global_position), Elevation.HIGH,
+        "setup: the player must be on the terrace")
+
+    var enemy := _spawn_enemy(FAR_LOW_POINT)
+    enemy.move_speed = 125.0
+    enemy.damage = 0
+    enemy.set_physics_process(true)
+    await wait_physics(4)
+    check_eq(Elevation.level_at(enemy.global_position), Elevation.LOW,
+        "setup: the distant enemy must be on the low ground")
+    check(enemy.global_position.distance_to(_player.global_position) > 520.0,
+        "setup: the distant enemy must start outside detection_range (it is %.0fpx away)" % [
+            enemy.global_position.distance_to(_player.global_position)])
+
+    var before := enemy.global_position
+    await wait_physics(180)
+    var moved := enemy.global_position.distance_to(before)
+    check(moved < 8.0,
+        "a distant enemy walked %.0fpx toward the high ground, so the router is deciding engagement rather than direction" % moved)
+
+    enemy.queue_free()
+    await wait_physics(2)
 
 
 func _place(node: Node2D, at: Vector2) -> void:
