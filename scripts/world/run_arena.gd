@@ -21,13 +21,16 @@ const TERRAIN := [
 ##
 ## Every rect is inside MainGround, `Rect2i(1, 1, 18, 10)`, so each knoll's wall row
 ## lands on ground rather than over the water at the arena's edge.
+## Stage 5 - the elite fort, the run's boss arena - has NO knoll. The entry is present
+## but empty rather than the array being shortened, so every stage index keeps pointing
+## at its own entry and adding a stage later cannot silently shift them.
 const KNOLL_RECTS := [
     Rect2i(3, 7, 2, 2),
     Rect2i(5, 6, 3, 2),
     Rect2i(2, 4, 2, 3),
     Rect2i(6, 7, 3, 3),
     Rect2i(4, 3, 3, 2),
-    Rect2i(2, 6, 3, 2)
+    Rect2i(),
 ]
 
 ## The knoll's palette, chosen per stage to differ from BOTH the stage ground
@@ -105,8 +108,11 @@ func _build_terrain() -> void:
     # the landmark patch. `build` declares and constructs in one call, which is safe
     # here because a stage has exactly one high region - with more than one, every
     # region must be declared before any is constructed.
-    HIGH_GROUND.build(_stage_root, "Knoll", TERRAIN[KNOLL_TERRAIN[stage]],
-        KNOLL_RECTS[stage])
+    #
+    # A zero-size entry means this stage has no knoll at all.
+    var knoll: Rect2i = KNOLL_RECTS[stage]
+    if knoll.size.x > 0 and knoll.size.y > 0:
+        HIGH_GROUND.build(_stage_root, "Knoll", TERRAIN[KNOLL_TERRAIN[stage]], knoll)
     if stage != 0:
         for data in [
             [1, Vector2(40, 114), 0], [2, Vector2(1230, 128), 5],

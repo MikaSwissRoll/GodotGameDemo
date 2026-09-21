@@ -73,6 +73,8 @@ func _run() -> void:
     print("  MainGround   x %7.1f..%7.1f   y %7.1f..%7.1f" % [
         GROUND.position.x, GROUND.end.x, GROUND.position.y, GROUND.end.y])
     var knoll: Rect2i = ARENA.KNOLL_RECTS[_stage]
+    if knoll.size.x <= 0 or knoll.size.y <= 0:
+        print("  this stage has NO knoll - its KNOLL_RECTS entry is empty; the derived bounds below are meaningless")
     var fc := float(knoll.position.x)
     var lc := float(knoll.position.x + knoll.size.x)
     var fr := float(knoll.position.y)
