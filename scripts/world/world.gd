@@ -155,7 +155,7 @@ func _build_enemy_camp() -> void:
         Vector2(68, 38))
     ENV.add_building(_art, RED + "Barracks.png", Vector2(3450, 650), 0.78,
         Vector2(116, 46), Vector2(1.0, 0.58))
-    ENV.add_building(_art, RED + "Castle.png", Vector2(3852, 620), 0.96,
+    ENV.add_building(_art, RED + "Castle.png", Vector2(3980, 492), 0.96,
         Vector2(230, 60), Vector2(1.75, 0.68))
     ENV.add_building(_art, RED + "Archery.png", Vector2(4450, 650), 0.76,
         Vector2(100, 42))
