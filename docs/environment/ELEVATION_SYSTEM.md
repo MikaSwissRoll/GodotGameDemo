@@ -141,10 +141,16 @@ Rules:
 
 - A cliff boundary is a **CharacterMovementBlocker**. It is not automatically a
   ProjectileBlocker.
-- Projectiles must be able to travel HIGH → LOW and LOW → HIGH.
+- Projectiles may travel HIGH → LOW and LOW → HIGH, **at most one crossing** (section 7).
+  The crossing budget is what limits a shot, not collision.
 - Real obstacles — buildings, fortress walls, a closed gate — may block projectiles
   as the scene requires. That is a deliberate, scene-specific ProjectileBlocker, not
   a side effect of a cliff.
+  > **No ProjectileBlocker exists yet.** Today an arrow passes through buildings: it
+  > connects `area_entered` only, and a building is a `StaticBody2D`, so the two can
+  > never meet. Treat buildings as cover for characters, not for projectiles, until a
+  > blocker layer is added. Do not "fix" this by adding the world bit to the arrow's
+  > mask — that would make cliffs block arrows and silently delete section 7.
 - The ramp's opening stays **traversable**. A boundary may be split into segments to
   leave the opening clear, and short ramp-side segments are allowed where they stop
   an actor clipping sideways through the edge.
@@ -170,21 +176,45 @@ re-implemented inside `Player`, `Follower`, `Enemy`, or any future melee actor.
 Actor-specific copies are how the player and the enemies ended up disagreeing about
 what a cliff means.
 
-## 7. Ranged: elevation is not a constraint
+## 7. Ranged: may cross elevation, at most once
 
-A ranged attack **may** cross elevation levels. Elevation difference never
-invalidates a ranged target by itself.
+A ranged attack **may** cross elevation, but a projectile may cross **at most one**
+LOW/HIGH boundary. An elevation difference never invalidates a ranged target by itself -
+what stops a shot is the terrain its path runs through, not the difference between the
+two ends.
 
-| Attacker | Target | Result |
-| --- | --- | --- |
-| LOW | HIGH | attack, if range and other conditions hold |
-| HIGH | LOW | attack, if range and other conditions hold |
-| LOW | LOW | attack |
-| HIGH | HIGH | attack |
+| Attacker | Target | Crossings | Result |
+| --- | --- | --- | --- |
+| LOW | LOW, open ground | 0 | fires |
+| HIGH | HIGH, same plateau | 0 | fires |
+| LOW | HIGH | 1 | fires |
+| HIGH | LOW | 1 | fires |
+| LOW | over a plateau | 2 | **stopped at the second boundary** |
+| HIGH | across a valley | 2 | **stopped at the second boundary** |
 
-Ranged validity is decided by: faction, range, target validity, and line of
-sight / projectile rules. **Not** by elevation, and **not** by navigation
-reachability.
+The budget is `EnemyArrow.ELEVATION_CROSSINGS_MAX`. Melee is 0 and is enforced on the
+attacker, in the melee handler; an arrow is 1. A future piercing shot would be 2.
+
+**This is what makes high ground cover as well as a firing position.** A player who drops
+behind a plateau is out of an archer's line, with no cover system, crouch button or cover
+node - the terrain is the cover system.
+
+Three consequences worth stating rather than discovering:
+
+- **A ramp is not a third elevation.** `level_at` returns LOW or HIGH and nothing else,
+  so a path over a stair column crosses once and is not charged twice.
+- **Two plateaus separated by a valley cannot shoot each other**, because that path
+  crosses twice. Accepted for now in exchange for a rule that stays one sentence; a real
+  flight-height model can replace it if the limitation bites in play.
+- **The crossing is counted from the projectile's own position**, not its shooter's. A
+  shooter spawns its arrow ahead of itself, so a shot fired from beside a plateau
+  legitimately starts on top of it - and that must not be charged as a crossing.
+
+The arrow is stopped by that budget, **not** by collision: it connects `area_entered`
+only and never touches world geometry (section 5).
+
+Ranged target *validity* is still decided by faction, range and target validity. **Not**
+by elevation, and **not** by navigation reachability.
 
 ## 8. AI: CanReachTarget is not CanAttackTarget
 
@@ -251,9 +281,9 @@ any elevation work.
 | 4 | An actor can cross LOW ↔ HIGH at a declared ramp, in both directions. |
 | 5 | No actor can enter or leave high ground through any edge that is not a declared ramp. |
 | 6 | The high-ground top surface is walkable and carries no movement collision. |
-| 7 | A cliff boundary never blocks a projectile. |
+| 7 | A cliff boundary never blocks a projectile by collision. What stops a shot that changes level twice is the projectile's own crossing budget. |
 | 8 | Melee requires same elevation, regardless of hitbox or sprite overlap. |
-| 9 | Ranged attacks are valid across elevations. |
+| 9 | Ranged attacks are valid across elevations, but a projectile may cross at most one LOW/HIGH boundary. |
 | 10 | Ranged target validity never depends on navigation reachability. |
 | 11 | An unreachable target produces a stable state, never a freeze or a per-frame retry storm. |
 | 12 | A follower obeys the same elevation and melee rules as every other melee actor. |
