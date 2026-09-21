@@ -43,8 +43,33 @@ const ROW_WALL_WATER := 5
 ## not re-derived here: an earlier revision swapped these on a reading of the atlas
 ## that did not survive being compared against the pack's own example map. Change them
 ## only against a capture, never against the tile sheet alone.
-const STAIR_COL_ASCENDING_EAST := 3
-const STAIR_COL_ASCENDING_WEST := 0
+## These two values have been wrong three times. Read this before touching them.
+##
+## `ascending_east = true` means the stair is climbed by walking EAST, so its raised
+## side faces east. That is what the caller means, and it is the only thing these
+## constants have to get right.
+##
+## The mapping from that meaning to an atlas column is NOT derivable from the tile
+## sheet. The two pieces are mirror images drawn on a diagonal, they sit at c0 and c3
+## with an empty spacer column between them, and the legend prints them in an order
+## that does not correspond to the atlas columns. Three attempts to settle it by
+## reasoning gave three different answers, each argued confidently:
+##
+##   1. from the legend's left-to-right panel order -> c0. Wrong.
+##   2. from "which side is the grass on" in a magnified atlas crop -> c3. Wrong.
+##   3. from the same reading in a magnified capture -> judgement that the value was
+##      already right. Wrong again. A diagonal's orientation cannot be settled by
+##      describing it in words: features belonging to the neighbouring tiles - the
+##      forecourt's own left-edge fringe, the shoulder's wall - were read as the
+##      stair's, and the conclusion was announced with more confidence than the
+##      evidence supported.
+##
+## The values below are the ones the project owner confirmed against the rendered
+## result. Treat them as measured data. If a stair ever looks reversed, change the
+## value and render it - do not re-derive it, and do not ask the owner to justify a
+## description that was already unambiguous.
+const STAIR_COL_ASCENDING_EAST := 0
+const STAIR_COL_ASCENDING_WEST := 3
 
 ## A stair spans two rows: the grass row and the wall row.
 const STAIR_ROWS := 2
