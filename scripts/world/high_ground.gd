@@ -305,18 +305,26 @@ static func _paint_stairs(
 
 ## How thick the north, east and west barriers are, in pixels.
 ##
-## They are centred ON the region's boundary line, so an actor stops half this distance
-## from the edge of the visible ground - with 16 that is 8px, which reads as touching it.
+## They sit INSIDE the region's footprint with their outer face exactly on the boundary
+## line, so the barrier IS the cliff face: it occupies the plateau's outermost strip and
+## blocks nothing outside the plateau at all. An actor walking up to it therefore stops
+## with its edge exactly on the visible edge.
 ##
-## Placed a whole tile OUTSIDE the footprint instead, as they once were, the barrier
-## stopped the actor at its NEAR face: a full tile plus their own radius short of any
-## visible ground, which reads as being blocked by nothing at all.
+## Two earlier placements were wrong. A whole tile outside put the barrier's near face a
+## full tile plus the actor's radius short of anything visible. Centred on the line put
+## half the thickness out in walkable ground, which is still a visible shortfall.
 ##
-## Do not make it much thinner than this. The dash moves roughly 7-10px per physics
-## frame, and a barrier thinner than one frame of movement has no margin at all against
-## tunnelling - and collision is the only thing enforcing "ramps are the only crossing",
-## so a body that gets through simply becomes HIGH with nothing to say otherwise.
-const SIDE_BARRIER_THICKNESS := 16.0
+## Thin is fine. An earlier note here claimed a thin barrier risked being tunnelled
+## through at dash speed; that was wrong. `CharacterBody2D.move_and_slide` resolves
+## motion with a swept test, so it finds the first contact along the whole step and speed
+## does not matter. Tunnelling needs a direct `position` assignment, which nothing here
+## does.
+##
+## The south barrier is NOT this thin and is not inside. It is the drawn stone row, so
+## the actor is stopped by stone it can see and the geometry needs no adjustment. That
+## asymmetry is exactly why the three unpainted sides used to feel different from the
+## south.
+const SIDE_BARRIER_THICKNESS := 8.0
 
 
 ## Movement collision for every edge, split around the stair openings.
@@ -338,15 +346,18 @@ static func _build_boundary(parent: Node, region: Rect2i, stairs: Array) -> void
     # South: the drawn wall row, at full tile thickness. Here the barrier IS the stone
     # the player can see, so being stopped by it is correct and needs no adjustment.
     _wall_span_x(parent, first_col, last_col, float(last_row) * tile + tile * 0.5, tile, last_row)
-    # North, east and west: thin, and centred on the boundary line.
-    _wall_span_x(parent, first_col, last_col, float(first_row) * tile,
+    # North, east and west: thin, and inside the footprint with the outer face on the
+    # boundary line. Centring the north band on `first_row` put half of it out in
+    # walkable ground, so the actor was stopped short of the edge it could see.
+    var half := SIDE_BARRIER_THICKNESS * 0.5
+    _wall_span_x(parent, first_col, last_col, float(first_row) * tile + half,
         SIDE_BARRIER_THICKNESS, first_row - 1)
     # The sides run from the region's top row down THROUGH the wall row, so the block is
     # closed. Stopping at `last_row` leaves the wall row's flanks open, and the region is
     # then not sealed - the side is walkable straight in beside the stone.
-    _wall_span_y(parent, first_row, last_row + 1, float(first_col) * tile,
+    _wall_span_y(parent, first_row, last_row + 1, float(first_col) * tile + half,
         SIDE_BARRIER_THICKNESS, first_col - 1)
-    _wall_span_y(parent, first_row, last_row + 1, float(last_col) * tile,
+    _wall_span_y(parent, first_row, last_row + 1, float(last_col) * tile - half,
         SIDE_BARRIER_THICKNESS, last_col)
 
     if stairs.is_empty():
