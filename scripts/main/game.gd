@@ -217,9 +217,9 @@ func _guard_training_talk() -> void:
         ClassicProgression.Training.MOVE:
             ui.show_npc_line("守卫：先用 WASD 走一走，四个方向都试试。")
         ClassicProgression.Training.ATTACK:
-            ui.show_npc_line("守卫：很好。挥一刀给我看看。")
+            ui.show_npc_line("守卫：很好。左键挥一刀给我看看。")
         _:
-            ui.show_npc_line("守卫：最后，举盾架住一次。")
+            ui.show_npc_line("守卫：最后，右键举盾架住一次。")
 
 
 func _pay_guard_reward() -> void:
