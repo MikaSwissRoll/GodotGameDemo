@@ -1,6 +1,6 @@
 extends "res://tests_v2/harness.gd"
 
-## V2 SCENARIOS — the first migrated production region: CastleTerrace.
+## V2 SCENARIOS ??the first migrated production region: CastleTerrace.
 ##
 ## The lab proves the model. This proves the migration: the real village terrace, in
 ## the real classic map, with the real player, is blocked everywhere along its wall
@@ -17,8 +17,8 @@ const SUITE := "castle_terrace"
 ## stairs sit in the side notches beside the south wall, at columns 14 and 24.
 const DROP_LINE := 512.0
 const FACE_BOTTOM := 576.0
-const STAIR_WEST_X := 928.0
-const STAIR_EAST_X := 1568.0
+const STAIR_WEST_X := 864.0
+const STAIR_EAST_X := 1632.0
 ## Inside the wall's span and clear of both stairs.
 const WALL_PROBE_XS := [1120.0, 1376.0]
 const LOW_GROUND_Y := 760.0
@@ -28,7 +28,7 @@ const STAIR_APPROACH_Y := 480.0
 ## The forecourt's own span in world x (cols 15-23). Used to assert that a player who
 ## crossed a stair ended up ON the terrace, rather than a castle-shaped window that
 ## only held while the castle's collision was there to stop him.
-const TERRACE_X := Vector2(960.0, 1536.0)
+const TERRACE_X := Vector2(896.0, 1600.0)
 
 var _game: Node2D
 var _player: Player
@@ -113,8 +113,8 @@ func _check_the_terrace_is_sealed() -> void:
     check(not Elevation.levels_are_connected(), "setup: no stair should be declared")
     for probe in [
         {"at": Vector2(1120.0, LOW_GROUND_Y), "action": "move_up", "side": "the south"},
-        {"at": Vector2(860.0, STAIR_APPROACH_Y), "action": "move_right", "side": "the west side"},
-        {"at": Vector2(1620.0, STAIR_APPROACH_Y), "action": "move_left", "side": "the east side"},
+        {"at": Vector2(790.0, STAIR_APPROACH_Y), "action": "move_right", "side": "the west side"},
+        {"at": Vector2(1700.0, STAIR_APPROACH_Y), "action": "move_left", "side": "the east side"},
     ]:
         await _place(probe["at"])
         check_eq(Elevation.level_at(_player.global_position), Elevation.LOW,
@@ -162,6 +162,11 @@ func _check_both_stairs_climb() -> void:
 
 ## Walk briefly in `action` from each candidate and report the first spot where the
 ## player makes headway in that direction. Returns (-1, -1) when none is open.
+##
+## The player is put back on the chosen spot before returning. Without that, the caller
+## inspects a position already walked 12 frames - close to half a tile - which is fine
+## while the next terrain edge happens to be far away and reads as "should start LOW"
+## failing the moment it is not.
 func _find_open_lateral(xs: Array, y: float, action: String) -> Vector2:
     var sign_expected := 1.0 if action == "move_right" else -1.0
     for x in xs:
@@ -169,6 +174,7 @@ func _find_open_lateral(xs: Array, y: float, action: String) -> Vector2:
         var from := _player.global_position
         await _walk(action, 12)
         if (_player.global_position.x - from.x) * sign_expected > 8.0:
+            await _place(Vector2(x, y))
             return Vector2(x, y)
     return Vector2(-1.0, -1.0)
 

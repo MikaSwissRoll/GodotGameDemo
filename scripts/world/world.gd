@@ -13,12 +13,16 @@ const TOWN := preload("res://scripts/world/starting_town.gd")
 const CASTLE_NORTH_TERRACE := Rect2i(13, 0, 13, 2)
 const CASTLE_WEST_SHOULDER := Rect2i(13, 2, 2, 4)
 const CASTLE_EAST_SHOULDER := Rect2i(24, 2, 2, 4)
-const CASTLE_TERRACE := Rect2i(15, 2, 9, 6)
+const CASTLE_TERRACE := Rect2i(14, 2, 11, 6)
 ## The stairs occupy the low-ground side notches immediately outside the forecourt.
 ## The west stair climbs east into the terrace; the east stair climbs west. Keeping
 ## them outside the footprint leaves the south wall continuous, as in the reference.
-const CASTLE_STAIR_WEST_COLUMN := 14
-const CASTLE_STAIR_EAST_COLUMN := 24
+##
+## They sit one column further out than the forecourt's edge, and they had to move when
+## the forecourt widened: at 14 and 24 they would now be part of the terrace itself
+## rather than a notch beside it.
+const CASTLE_STAIR_WEST_COLUMN := 13
+const CASTLE_STAIR_EAST_COLUMN := 25
 const MAP_CELLS := Vector2i(75, 24)
 const MAP_SIZE := Vector2(4800.0, 1536.0)
 const RIVER_LEFT := 2304.0
