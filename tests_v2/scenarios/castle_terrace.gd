@@ -17,8 +17,8 @@ const SUITE := "castle_terrace"
 ## stairs sit in the side notches beside the south wall, at columns 14 and 24.
 const DROP_LINE := 512.0
 const FACE_BOTTOM := 576.0
-const STAIR_WEST_X := 928.0
-const STAIR_EAST_X := 1568.0
+const STAIR_WEST_X := 864.0
+const STAIR_EAST_X := 1632.0
 ## Inside the wall's span and clear of both stairs.
 const WALL_PROBE_XS := [1120.0, 1376.0]
 const LOW_GROUND_Y := 760.0
