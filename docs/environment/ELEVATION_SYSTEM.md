@@ -97,6 +97,36 @@ The **only legal LOW ↔ HIGH connection**. It:
 A plateau with no ramp is legal: it is simply unreachable. A plateau is never
 reachable through an edge that is not a declared ramp.
 
+#### 4.3.1 The ramp's rows must include the terrace's own last surface row
+
+This is the one rule that silently seals a plateau.
+
+Two mechanisms read the ramp's tile rect:
+
+- the **level flip** happens when an actor steps off the ramp onto the terrace's **own
+  surface**. A ramp that stops short of that surface never produces a flip;
+- the **boundary builder opens collision on ramp tiles**. A ramp that misses the row the
+  boundary runs along leaves that boundary solid.
+
+So a ramp spanning only the rows *below* the terrace - the wall row and the low row
+beneath it, say - is registered, is painted, and connects nothing. The terrace is
+sealed, and no error is raised anywhere.
+
+`HighGround.stair_rect` derives the rect as
+
+```gdscript
+Rect2i(column, last_row + top_row_offset, 1, STAIR_ROWS)
+```
+
+where `last_row` is the wall row, one past the terrace's last surface row. The offset
+therefore has to be **-2 or -1**; **0 and above break it**. The art and the legal
+crossing are derived from the same rect, so a stair cannot be drawn where it does not
+connect - but it *can* be drawn and connect nothing if the offset is wrong.
+
+`top_row_offset` is **per stair**, not a project-wide constant. Making it global once
+moved every scene's stairs at the same time, including the ElevationLab's, and broke
+seven checks in two suites with nothing to indicate the two scenes were coupled.
+
 ## 5. Collision: two jobs, two colliders
 
 A cliff boundary may stop a character while still letting an arrow fly over it.

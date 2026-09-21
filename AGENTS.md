@@ -32,6 +32,46 @@ focused on the current vertical slice.
   gameplay changes. If a required MCP capability is unavailable, fall back to
   the local Godot CLI or other appropriate project tools.
 
+## Coordinate protocol
+
+Positions in this project are exchanged as **tiles**, not descriptions. A description
+has to be interpreted and can be interpreted wrongly; a tile can be computed.
+
+```text
+tile  ->  pixel (tile centre)  =  col * 64 + 32 ,  row * 64 + 32
+pixel ->  tile                 =  floor(pixel / 64)
+move +/-N columns or rows      =  +/-N * 64 pixels
+```
+
+**When the user names a building, prop or feature, answer with four things:**
+
+1. what it is;
+2. its **anchor in world pixels** - for a building that is the `foot`, which is what
+   `add_building` takes;
+3. the **tile that anchor sits in**;
+4. **which tiles its sprite covers**.
+
+Item 4 is not optional. A building is drawn *upward* from its foot, so what the user
+sees on screen and the anchor they can act on are different tiles - a monastery with its
+foot at row 7 is "the house at row 6" to anyone looking at it. Answering with the foot
+alone is what produced a round of guessing at which building was meant.
+
+**When the named tile holds nothing, answer with arithmetic, not a guess.** Report what
+is actually on that tile and which object's footprint covers it, then act on the closest
+match and say which one it was.
+
+**Two numbering systems exist and must never be mixed:**
+
+| Written | Means |
+| --- | --- |
+| `#42` | an **atlas** cell - which cell of the tileset PNG |
+| `col 42 row 7` | a **world** tile - which cell of the map |
+
+**Visual questions go to the user.** Produce a capture - magnified and grid-marked when
+the detail is small - and let them point at it. Do not settle a question about which way
+a sprite faces, or how a shape reads, by describing pixels in words. That was tried three
+times on one stair and was wrong three times.
+
 ## Current Validation
 
 **The legacy test/smoke infrastructure is frozen.** `tests/` is gone and must not
@@ -70,8 +110,12 @@ elevation behaviour, read:
   crossing; melee requires the same level; ranged crosses freely and never requires
   reachability; `CanReachTarget` and `CanAttackTarget` are different questions.
 - `docs/environment/HIGHGROUND_TILE_GRAMMAR.md` — how to compose the terrain from
-  the real Tiny Swords assets. Top surface first, cliffs second. There is no ramp
-  tile in the pack; a ramp is composed.
+  the real Tiny Swords assets, and the build procedure in §6.1. Top surface first,
+  cliffs second. The pack **does** provide stair pieces, at atlas c0 and c3 rows
+  4-5; an earlier revision composed a substitute because it misread them as
+  shoreline corners. The composed version was withdrawn.
+- `docs/environment/BUILDING_PLACEMENT.md` — where a building's anchor is, what its
+  sprite actually covers, and the arithmetic for placing one on a tile.
 - `docs/environment/ELEVATION_AUDIT.md` — what the old architecture was, so the
   same defects are not reintroduced.
 - `docs/FOLLOWER_SYSTEM_WORKFLOW.md` when follower behaviour is involved.

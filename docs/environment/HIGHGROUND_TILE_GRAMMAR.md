@@ -228,6 +228,80 @@ materials butted together, not as one region.
 **TOP SURFACE FIRST. WALL SECOND.** A wall tile where no drop is visible is a lie
 about the terrain.
 
+### 6.1 The procedure, in order
+
+The list above is a layer order. This is the working procedure.
+
+**Step 1 — decide the elevation field, before any art.**
+
+The high ground is not a picture; it is a region registered with `Elevation`, and
+everything else is derived from it. Fix the footprint in world tiles first.
+
+| Quantity | Rule |
+| --- | --- |
+| surface rows | `row … row + height - 1` |
+| **wall row** | `row + height` - one row **below** the footprint, outside it |
+| west boundary band | column `col - 1` |
+| east boundary band | column `col + width` |
+
+**Step 2 — decide whether it is one rectangle or a union.**
+
+A stepped silhouette (凸 and its relatives) is two or more rects at the same level.
+
+> **Every region in the scene must be `declare`d before any of them is
+> `construct`ed.** The boundary builder asks whether the tile beyond an edge is also
+> high ground; building one piece before its neighbour is declared walls the seam
+> between them and cuts one terrace into two.
+
+The stepped outline then costs nothing: edge art is chosen by a neighbour test, so
+two regions that meet are seamless and the wall stops on its own where the ground in
+front of it is high.
+
+**Step 3 — choose the palette.** This is the elevation cue, so the step has to be
+obvious at a glance. Measured: `color1` to `color2` is too close, `color3` is
+clearly distinct. Note that within one file the waterside set and the grass set share
+the same fill colour and differ only in edge art, so the file choice is the *only*
+cue available.
+
+**Step 4 — build the complete high ground with NO stairs first.**
+
+This is a deliberate stop, not an oversight. Entrance placement is level design, and
+it is far more reliable to point at a rendered capture than to derive it from the
+tile sheet. With no stair declared, the wall spans its full width and all four edges
+carry collision, so the plateau is sealed by construction - nothing extra to write.
+
+When choosing entrances, three decisions are needed:
+
+| Decision | Note |
+| --- | --- |
+| which column | a stair is 1 column wide; that is the official unit, do not widen it |
+| which two rows | expressed as `top_row_offset`, relative to the wall row |
+| which direction | `ascending_east`; the **raised side must face the terrace** |
+
+```gdscript
+HIGH_GROUND.make_stair(13, true, -2)   # col 13, climbs west to east, from wall_row - 2
+```
+
+> **The stair's rows must include the terrace's own last surface row.** The level
+> flips when an actor steps off the stair onto that surface, and the wall builder
+> opens a boundary on ramp tiles. A stair that misses that row **seals the terrace
+> completely**.
+
+**Step 5 — `declare` them all, then `construct` each.**
+
+`construct` builds surface (z -18), wall (z -17), stairs (z -15) and collision in one
+pass, all derived from the same field. The stair is drawn *over* the wall rather than
+cutting a hole in it: what is drawn and what blocks are separate questions.
+
+**Step 6 — clear whatever the new footprint swallowed.** Buildings whose foot lands
+inside it, and trees. The groves are generated from coordinates, so they need a
+keepout box rather than individual edits.
+
+**Step 7 — place the buildings.** See `BUILDING_PLACEMENT.md`.
+
+**Step 8 — verify.** Suites, a running scene, and a capture that is looked at. An
+automated suite passing is not evidence that terrain looks right.
+
 ## 7. Composition notes
 
 - Minimum footprint: 3 rows tall, so rim, interior and lip all fit. Under 3 rows the
