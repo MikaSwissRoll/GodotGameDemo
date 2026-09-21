@@ -6,12 +6,9 @@ extends SceneTree
 ##
 ##   godot --path . --script res://tools/collision_probe.gd -- --stage=1
 ##
-## The expected rectangles are computed from the arena's own KNOLL_RECTS and from
-## HighGround's own constants, so they cannot drift away from the code they describe.
+## Expedition stages carry no high ground, so the reference is MainGround and the arena frame.
 
 const SCENE := "res://scenes/main/run_game.tscn"
-const ARENA := preload("res://scripts/world/run_arena.gd")
-const HG := preload("res://scripts/world/high_ground.gd")
 const TILE := 64.0
 ## MainGround = Rect2i(1, 1, 18, 10)
 const GROUND := Rect2(64.0, 64.0, 1152.0, 640.0)
@@ -72,32 +69,10 @@ func _run() -> void:
     print("=== reference ===")
     print("  MainGround   x %7.1f..%7.1f   y %7.1f..%7.1f" % [
         GROUND.position.x, GROUND.end.x, GROUND.position.y, GROUND.end.y])
-    var knoll: Rect2i = ARENA.KNOLL_RECTS[_stage]
-    if knoll.size.x <= 0 or knoll.size.y <= 0:
-        print("  this stage has NO knoll - its KNOLL_RECTS entry is empty; the derived bounds below are meaningless")
-    var fc := float(knoll.position.x)
-    var lc := float(knoll.position.x + knoll.size.x)
-    var fr := float(knoll.position.y)
-    var lr := float(knoll.position.y + knoll.size.y)
-    var side: float = HG.SIDE_BARRIER_THICKNESS
-    print("  knoll %s -> cols %d-%d rows %d-%d" % [knoll, knoll.position.x,
-        knoll.position.x + knoll.size.x - 1, knoll.position.y,
-        knoll.position.y + knoll.size.y - 1])
-    print("  surface      x %7.1f..%7.1f   y %7.1f..%7.1f" % [
-        fc * TILE, lc * TILE, fr * TILE, lr * TILE])
-    print("  south wall   x %7.1f..%7.1f   y %7.1f..%7.1f   size %5.1f x %5.1f" % [
-        fc * TILE, lc * TILE, lr * TILE, lr * TILE + TILE, (lc - fc) * TILE, TILE])
-    print("  north band   x %7.1f..%7.1f   y %7.1f..%7.1f   size %5.1f x %5.1f" % [
-        fc * TILE, lc * TILE, fr * TILE, fr * TILE + side,
-        (lc - fc) * TILE, side])
-    print("  west band    x %7.1f..%7.1f   y %7.1f..%7.1f   size %5.1f x %5.1f" % [
-        fc * TILE, fc * TILE + side, fr * TILE, lr * TILE + TILE,
-        side, (lr - fr + 1.0) * TILE])
-    print("  east band    x %7.1f..%7.1f   y %7.1f..%7.1f   size %5.1f x %5.1f" % [
-        lc * TILE - side, lc * TILE, fr * TILE, lr * TILE + TILE,
-        side, (lr - fr + 1.0) * TILE])
-    print("  -> a body approaching from the north stops at y = %.1f" % (fr * TILE - 18.0))
-    print("  -> the visible grass starts at y = %.1f, so its edge is 0.0 px short" % (fr * TILE))
+    # No knoll bounds are derived any more: Expedition stages carry no high ground, so
+    # the only rectangles left to compare against are the arena frame and MainGround.
+    # The collider list above is the part that matters - it is what the physics engine
+    # actually has, which a screenshot cannot show.
     quit()
 
 
