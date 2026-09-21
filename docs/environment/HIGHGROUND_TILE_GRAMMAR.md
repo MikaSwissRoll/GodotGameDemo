@@ -35,6 +35,49 @@ r5      89    .    .   92    .   85   93   85   78
 
 **Column 4 is empty.** It is a spacer and nothing may be placed there.
 
+## 1a. Tile numbers — the shared vocabulary
+
+So a tile can be named unambiguously in conversation, every cell has a number:
+
+```
+number = row * 9 + column + 1        (row 0-5 top to bottom, column 0-8 left to right)
+```
+
+`#1` is the top-left cell, `#9` the top-right, `#10` starts row 1, `#54` is the
+bottom-right. Say "**#46**" and it means exactly one cell, in every palette.
+
+| Row | Numbers | What the row holds |
+| --- | --- | --- |
+| r0 | **#1 – #9** | top edge of the ground sets |
+| r1 | **#10 – #18** | set interiors |
+| r2 | **#19 – #27** | bottom edge of the square sets |
+| r3 | **#28 – #36** | the free-standing strip pieces |
+| r4 | **#37 – #45** | the two stairs' upper halves, and the wall over land |
+| r5 | **#46 – #54** | the two stairs' lower halves, and the wall over water |
+
+The cells that actually matter, by number:
+
+| # | Cell | What it is |
+| --- | --- | --- |
+| **#2 / #11 / #20** | c1 r0/r1/r2 | waterside square: top, interior, bottom |
+| **#4** | c3 r0 | top of the waterside strip |
+| **#7 / #16 / #25 / #34** | c6 r0/r1/r2/r3 | grass square: top, upper interior, lower interior, bottom |
+| **#13** | c4 r1 | *empty spacer* |
+| **#28** | c0 r3 | the free-standing strip — **fringes on BOTH edges, never use it inside a region** |
+| **#37 / #46** | c0 r4 / c0 r5 | **stair: climbs west → east** (upper half / lower half) |
+| **#40 / #49** | c3 r4 / c3 r5 | **stair: climbs east → west** (upper half / lower half) |
+| **#42 / #43 / #44** | c5/c6/c7 r4 | **south wall over land** (left/middle/right) |
+| **#45** | c8 r4 | south wall over land, strip end |
+| **#46 / #47 / #48** | c5/c6/c7 r5 | **south wall over water** (left/middle/right) |
+| **#49** | c8 r5 | south wall over water, strip end |
+
+**Name tiles by number when talking; keep `c{col} r{row}` in code.** The number is for
+conversation, the coordinate is for addressing.
+
+> Where a number has to appear in code, write both: `#42 (c5 r4)`. A bare number is
+> unreadable in source, and a bare coordinate is what produced three rounds of "which
+> stair piece do you mean".
+
 ## 2. What each cell is
 
 The pack's legend names four kinds of piece. The columns are **not** "low" and
@@ -94,16 +137,16 @@ non-south edges meet something the player already reads as impassable.
 
 ## 4. The stair
 
-A stair is **2 rows tall and 1 column wide**, and it spans exactly:
+A stair is **2 rows tall and 1 column wide**. A side entrance spans the two rows
+beside the end of the south wall:
 
 ```
-[ the high surface's last row  ]   <- the grass block row
-[ the wall row                 ]   <- one row below the footprint
+[ beside the last surface row ]   <- upper stair row, crossing the side boundary
+[ beside the wall row         ]   <- lower stair row on low ground
 ```
 
-So the wall is one row, the grass block is one row, and the stair covers the pair.
-That is why the stair is two rows: it replaces both, and its foot lands at the top of
-the low ground.
+The raised side faces the high surface. The other side stays connected to the
+low-ground notch. The south wall remains one continuous row.
 
 Direction is fixed by the piece, and the two are **mirror images**:
 
@@ -118,30 +161,36 @@ Direction is fixed by the piece, and the two are **mirror images**:
 > wrong one still climbs, but its grass faces away from the terrace, so the slope reads
 > as descending the wrong way.
 
-At a **wall's end** the raised side must face the terrace: the west stair needs
-`c3` (raised side east), the east stair needs `c0` (raised side west).
+At a **wall's end** the raised side must face the terrace: place the west stair one
+column outside the footprint and use `c3` (raised side east). Place the east stair
+one column outside the footprint and use `c0` (raised side west).
 
-### A stair occludes the wall, it does not replace it
+### A side stair leaves the south wall intact
 
-Paint the wall across its **full span**, then draw the stair on a layer above it.
+Paint the south wall across its **full span**. Draw each stair in the low-ground
+notch beside the wall, on the layer above the terrain.
 
-The stair's art is mostly grass with a stone wedge at one corner, so cutting a tile
-out of the wall at the stair column leaves the grass with nothing behind it: the wall
-looks bitten and the stair looks like a patch glued to its end. Drawn on top instead,
-it reads as a slope in front of the wall — which is what the pack's own example map
-shows.
+The stair's upper row opens the west or east collision boundary. It does not cut an
+opening in the south wall. This creates the U-shaped outline used by the castle
+terrace: short upper wall sections, low-ground side approaches, and one continuous
+front wall.
 
-**What is drawn and what blocks are separate questions.** The wall row's *collision*
-is opened at the stair column; the stone is not.
+**What is drawn and what blocks are separate questions.** Open collision only on the
+side boundary cell covered by the stair. Keep the remaining side boundary and the
+complete south wall solid.
 
 The wall's collision is exactly ONE row, matching the one row drawn. A taller collider
 stops the player a tile short of the stone they can see, with a visible gap between
 them.
 
-Place stairs at the **ends** of a south wall, as the pack's own example map does. A
-one-column stair is the official unit; do not widen it, and do not compose a
-substitute. An earlier revision of this project invented a wider composed stair; it
-was withdrawn in favour of the official piece.
+Place stairs immediately **outside the ends** of the south wall. A one-column stair
+is the official unit; do not widen it, and do not compose a substitute. An earlier
+revision placed both stairs over the wall itself. That left the side notches empty
+and made the intended U-shaped high-ground outline unreadable.
+
+The asset set contains no separate wooden stair image. The castle terrace keeps the
+official grass slope underneath and adds pixel-aligned wooden treads as presentation
+only. The overlay does not define elevation, collision, or ramp reachability.
 
 ## 5. Colour is elevation
 
