@@ -65,6 +65,17 @@ func _architecture() -> void:
 ## inside this box: the terrace's columns and rows, plus the stair rows below it.
 const TERRACE_KEEPOUT := Rect2i(13, 0, 13, 10)
 
+## Trees the grove layout puts somewhere they should not be. Keyed by the position the
+## cluster maths produces, valued by where the tree should stand instead.
+##
+## Relocating rather than deleting keeps the tree in its cluster's paint order and keeps
+## its sway phase, and keying on the computed position means the entry keeps working when
+## the cluster list around it is retuned. Moving the cluster itself would drag four trees
+## and a bush along with it.
+const TREE_RELOCATIONS := {
+    Vector2(1845, 358): Vector2(1717, 358),   # the one over the monastery: -2 columns
+}
+
 
 func _groves() -> void:
     var clusters := [Vector2(470, 380), Vector2(670, 280), Vector2(800, 360),
@@ -77,6 +88,8 @@ func _groves() -> void:
                 Vector2(-55, 68), Vector2(64, 100)][j]
             if TERRACE_KEEPOUT.has_point(Elevation.tile_of(at)):
                 continue
+            if TREE_RELOCATIONS.has(at):
+                at = TREE_RELOCATIONS[at]
             ENV.add_tree(self, (index + j) % 4 + 1, at, 0.85, true, index + j)
         var bush_at: Vector2 = clusters[index] + Vector2(12, 100)
         if TERRACE_KEEPOUT.has_point(Elevation.tile_of(bush_at)):
