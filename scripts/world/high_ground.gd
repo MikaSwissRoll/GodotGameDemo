@@ -303,6 +303,22 @@ static func _paint_stairs(
             Vector2i(atlas_column, ROW_WALL_WATER))
 
 
+## How thick the north, east and west barriers are, in pixels.
+##
+## They are centred ON the region's boundary line, so an actor stops half this distance
+## from the edge of the visible ground - with 16 that is 8px, which reads as touching it.
+##
+## Placed a whole tile OUTSIDE the footprint instead, as they once were, the barrier
+## stopped the actor at its NEAR face: a full tile plus their own radius short of any
+## visible ground, which reads as being blocked by nothing at all.
+##
+## Do not make it much thinner than this. The dash moves roughly 7-10px per physics
+## frame, and a barrier thinner than one frame of movement has no margin at all against
+## tunnelling - and collision is the only thing enforcing "ramps are the only crossing",
+## so a body that gets through simply becomes HIGH with nothing to say otherwise.
+const SIDE_BARRIER_THICKNESS := 16.0
+
+
 ## Movement collision for every edge, split around the stair openings.
 ##
 ## The south wall is ONE row, matching the one row that is drawn: a taller collider
@@ -319,13 +335,19 @@ static func _build_boundary(parent: Node, region: Rect2i, stairs: Array) -> void
     var first_row := region.position.y
     var last_row := region.position.y + region.size.y
 
-    # South: the drawn wall row.
+    # South: the drawn wall row, at full tile thickness. Here the barrier IS the stone
+    # the player can see, so being stopped by it is correct and needs no adjustment.
     _wall_span_x(parent, first_col, last_col, float(last_row) * tile + tile * 0.5, tile, last_row)
-    # North.
-    _wall_span_x(parent, first_col, last_col, float(first_row) * tile - tile * 0.5, tile, first_row - 1)
-    # East and west.
-    _wall_span_y(parent, first_row, last_row, float(first_col) * tile - tile * 0.5, tile, first_col - 1)
-    _wall_span_y(parent, first_row, last_row, float(last_col) * tile + tile * 0.5, tile, last_col)
+    # North, east and west: thin, and centred on the boundary line.
+    _wall_span_x(parent, first_col, last_col, float(first_row) * tile,
+        SIDE_BARRIER_THICKNESS, first_row - 1)
+    # The sides run from the region's top row down THROUGH the wall row, so the block is
+    # closed. Stopping at `last_row` leaves the wall row's flanks open, and the region is
+    # then not sealed - the side is walkable straight in beside the stone.
+    _wall_span_y(parent, first_row, last_row + 1, float(first_col) * tile,
+        SIDE_BARRIER_THICKNESS, first_col - 1)
+    _wall_span_y(parent, first_row, last_row + 1, float(last_col) * tile,
+        SIDE_BARRIER_THICKNESS, last_col)
 
     if stairs.is_empty():
         return

@@ -17,13 +17,13 @@ const SCENE := "res://scenes/main/run_game.tscn"
 const STAGE := 0
 ## MainGround = Rect2i(1, 1, 18, 10)
 const GROUND := Rect2(64.0, 64.0, 1152.0, 640.0)
-## KNOLL_RECTS[0] = Rect2i(3, 7, 2, 2) -> surface, then the four derived bands
+## KNOLL_RECTS[0] = Rect2i(3, 7, 2, 2) -> surface, then the four derived bands.
 const KNOLL := Rect2(192.0, 448.0, 128.0, 128.0)
 const KNOLL_BANDS := {
     "south (drawn wall)": Rect2(192.0, 576.0, 128.0, 64.0),
-    "north (no art)": Rect2(192.0, 384.0, 128.0, 64.0),
-    "west  (no art)": Rect2(128.0, 448.0, 64.0, 128.0),
-    "east  (no art)": Rect2(320.0, 448.0, 64.0, 128.0),
+    "north (no art)": Rect2(192.0, 440.0, 128.0, 16.0),
+    "west  (no art)": Rect2(184.0, 448.0, 16.0, 192.0),
+    "east  (no art)": Rect2(312.0, 448.0, 16.0, 192.0),
 }
 
 
