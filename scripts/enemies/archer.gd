@@ -206,6 +206,10 @@ func take_damage(amount: int, source_direction: Vector2) -> void:
     if not _alive:
         return
     health = maxi(0, health - amount)
+    # See `Enemy.take_damage`. The two hostile classes share no base, so the same call
+    # has to exist in both - and a counter added to only one of them would under-report
+    # every archer killed, silently.
+    RunStats.record_damage(amount)
     _flash_left = 0.18
     _knockback = source_direction.normalized() * 180.0
     FEEDBACK.popup(get_parent(), global_position, str(amount), Color("#fff0b5"))

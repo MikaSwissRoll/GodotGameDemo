@@ -16,6 +16,9 @@ const SPAWNS := [
     Vector2(760, 470), Vector2(1010, 390), Vector2(750, 270),
     Vector2(1040, 560), Vector2(950, 220)
 ]
+## How many shop purchases the result screen lists before it summarises the rest.
+## The report has a fixed height and the list does not, so something has to give.
+const PURCHASE_LINES_MAX := 6
 
 static var previous_first_variant: int = -1
 static var auto_start_next: bool = false
@@ -50,6 +53,10 @@ func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     INPUT_SETUP.ensure_actions()
     rng.randomize()
+    # A fresh run scene is a fresh run. `run_seconds`, `kills` and `gold_earned` are
+    # plain fields and reset with the scene; RunStats is static and would carry the
+    # previous run's numbers into the next one without this.
+    RunStats.reset()
     player.movement_bounds = Rect2(76, 76, 1128, 568)
     player.camera.limit_left = 0
     player.camera.limit_top = 0
@@ -278,6 +285,7 @@ func _on_buy_health_requested() -> void:
         return
     gold -= health_potion_price
     health_potions += 1
+    RunStats.record_purchase("生命药水", health_potion_price)
     _refresh_shop("购入生命药水。按 1 使用。")
 
 
@@ -289,6 +297,7 @@ func _on_buy_stamina_requested() -> void:
         return
     gold -= stamina_potion_price
     stamina_potions += 1
+    RunStats.record_purchase("精力药水", stamina_potion_price)
     _refresh_shop("购入精力药水。按 2 使用。")
 
 
@@ -299,6 +308,9 @@ func _on_buy_upgrade_requested() -> void:
         ui.refresh_shop(gold, "金币不足，无法购买战技。")
         return
     gold -= upgrade_price
+    # Recorded before the id is cleared: `_grant_upgrade` does not clear it, the next
+    # line does, and reading it after that would log the purchase as an empty name.
+    RunStats.record_purchase(UPGRADES.name_of(shop_upgrade_id), upgrade_price)
     _grant_upgrade(shop_upgrade_id)
     shop_upgrade_id = ""
     ui.mark_shop_upgrade_sold()
@@ -357,11 +369,33 @@ func _finish_run(won: bool) -> void:
     var names: Array[String] = []
     for id in player.upgrades.keys():
         names.append(UPGRADES.name_of(id))
-    var summary := "用时 %d:%02d  ·  击败 %d 人  ·  获得 %d 金币\n本局战技：%s" % [
-        floori(run_seconds / 60.0), int(run_seconds) % 60,
-        kills, gold_earned, " · ".join(names) if not names.is_empty() else "无"
-    ]
-    ui.show_end(won, summary)
+    # The result screen is a report, so the numbers are the content. Built here rather
+    # than in the UI: this is where the run's own figures live, and the UI should not
+    # have to know how a run is measured.
+    var results: Array[String] = []
+    results.append("用时            %d:%02d" % [
+        floori(run_seconds / 60.0), int(run_seconds) % 60])
+    results.append("造成伤害        %d" % RunStats.damage_dealt)
+    results.append("击败            %d 人" % kills)
+    results.append("获得金币        %d" % gold_earned)
+    results.append("本局战技        %s" % (" · ".join(names) if not names.is_empty() else "无"))
+    results.append("")
+    if RunStats.purchases.is_empty():
+        # Stated rather than left blank: an empty section reads as a missing one.
+        results.append("商店消费        没有买东西")
+    else:
+        results.append("商店消费        %d 金币" % RunStats.spent())
+        # Capped, because the list has no upper bound - a long run can buy far more
+        # than the panel can show, and an unbounded list would push the rest of the
+        # report off it. The remainder is counted rather than silently dropped.
+        var shown := mini(RunStats.purchases.size(), PURCHASE_LINES_MAX)
+        for index in shown:
+            var entry: Dictionary = RunStats.purchases[index]
+            results.append("    %s        %d" % [entry["what"], entry["price"]])
+        if RunStats.purchases.size() > shown:
+            results.append("    还有 %d 笔" % (RunStats.purchases.size() - shown))
+    var body := "盗匪清剿完毕，边境暂时安稳了。" if won else "倒在了第 %d 场遭遇战。" % room_index
+    ui.show_end(won, body, results)
     get_tree().paused = true
 
 

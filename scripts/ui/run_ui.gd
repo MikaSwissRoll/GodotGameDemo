@@ -26,6 +26,16 @@ const MODAL_PAD := 20.0
 # The title and body sit above the first button, so the panel must stay tall
 # enough for them; shrinking purely to the button count overlapped the body.
 const MODAL_MIN_HEIGHT := 358.0
+## Reserved height for the run summary on the win/dead screens. The action rows are
+## pushed down by exactly this when it is shown, so a long purchase list cannot grow
+## underneath the buttons and swallow them.
+##
+## The label's own height is this minus RESULTS_TOP_GAP: it starts at y=142, which is
+## BELOW the MODAL_BUTTON_TOP baseline the rows are offset from, so the usable height is
+## `RESULTS_BLOCK_HEIGHT - (142 - MODAL_BUTTON_TOP) - gap` and not the block height.
+## Sizing it as `block - 12` overlapped the first button by 20px.
+const RESULTS_BLOCK_HEIGHT := 320.0
+const RESULTS_TOP_GAP := 56.0
 # Button indices that cancel progress, per docs/art/UI_VISUAL_RULES.md: quitting
 # or abandoning a run takes the red destructive state, matching the main menu's
 # "退出游戏" button. Buying something spends gold but keeps the run going, so
@@ -66,6 +76,9 @@ var modal_panel: Panel
 var menu_buttons: Array[Button] = []
 var overlay_title: Label
 var overlay_body: Label
+## The run summary on the win/dead screens: a table of figures, so left-aligned where
+## the title and body above it are centred.
+var result_label: Label
 var buttons: Array[ActionRow] = []
 var mode := ""
 var reward_options: Array[String] = []
@@ -215,9 +228,9 @@ func show_pause() -> void:
         ["继续游戏", "重新开始本局", "返回主菜单"], "pause")
 
 
-func show_end(won: bool, summary: String) -> void:
-    _show("远征胜利" if won else "远征失败", summary,
-        ["再来一局", "返回主菜单"], "win" if won else "dead")
+func show_end(won: bool, body: String, results: Array[String]) -> void:
+    _show("远征胜利" if won else "远征失败", body,
+        ["再来一局", "返回主菜单"], "win" if won else "dead", results)
 
 
 func hide_overlay() -> void:
@@ -317,6 +330,13 @@ func _build_overlay(root: Control) -> void:
     overlay_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     overlay_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     overlay_body.add_theme_color_override("font_color", INK)
+    result_label = _label(modal_panel, Vector2(95, 142),
+        Vector2(500, RESULTS_BLOCK_HEIGHT - RESULTS_TOP_GAP), 18)
+    result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+    result_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+    result_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+    result_label.add_theme_color_override("font_color", INK)
+    result_label.visible = false
     # Two-line action rows, evenly gap-separated and contained by the panel frame.
     for index in 4:
         var button := _action_row(modal_panel, Vector2(MODAL_BUTTON_LEFT, MODAL_BUTTON_TOP))
@@ -390,7 +410,8 @@ func _banner(parent: Control, at: Vector2, size: Vector2) -> Panel:
     return banner
 
 
-func _show(title: String, body: String, labels: Array[String], next_mode: String) -> void:
+func _show(title: String, body: String, labels: Array[String], next_mode: String,
+        results: Array[String] = []) -> void:
     mode = next_mode
     # A run-ending or shop modal makes the combat HUD irrelevant, so subordinate
     # it. Keep it for "pause", where the frozen HUD is the visible pause context
@@ -403,6 +424,13 @@ func _show(title: String, body: String, labels: Array[String], next_mode: String
     _toast_time = 0.0
     overlay_title.text = title
     overlay_body.text = body
+    # The run summary pushes the action rows down by its reserved height rather than
+    # sharing space with them, so the two can never overlap however long the purchase
+    # list runs. Every other modal passes no results and is laid out exactly as before.
+    var has_results := not results.is_empty()
+    result_label.visible = has_results
+    result_label.text = "\n".join(results)
+    var first_row_y := MODAL_BUTTON_TOP + (RESULTS_BLOCK_HEIGHT if has_results else 0.0)
     var danger: Array = DANGER_BUTTONS.get(next_mode, [])
     for index in 4:
         var row: ActionRow = buttons[index]
@@ -418,7 +446,7 @@ func _show(title: String, body: String, labels: Array[String], next_mode: String
     # Center-anchored, so offsets are relative to the viewport centre; assigning
     # `position` here would be re-derived against the anchor and push the panel
     # off-screen, so set the offsets that `position` is computed from.
-    var needed := maxf(_stack_height(labels), MODAL_MIN_HEIGHT) + MODAL_PAD
+    var needed := maxf(_stack_height(labels, first_row_y), MODAL_MIN_HEIGHT) + MODAL_PAD
     modal_panel.offset_left = -MODAL_WIDTH * 0.5
     modal_panel.offset_right = MODAL_WIDTH * 0.5
     modal_panel.offset_top = -needed * 0.5
@@ -427,10 +455,11 @@ func _show(title: String, body: String, labels: Array[String], next_mode: String
     buttons[0].grab_focus()
 
 
-## Lay the visible rows out from MODAL_BUTTON_TOP with a small gap between them,
-## and return the total height they occupy.
-func _stack_height(labels: Array[String]) -> float:
-    var y := MODAL_BUTTON_TOP
+## Lay the visible rows out from `top` with a small gap between them, and return the
+## total height they occupy. `top` is MODAL_BUTTON_TOP, or that plus the run summary's
+## reserved height when one is shown.
+func _stack_height(labels: Array[String], top: float = MODAL_BUTTON_TOP) -> float:
+    var y := top
     for index in labels.size():
         var row: ActionRow = buttons[index]
         row.position.y = y

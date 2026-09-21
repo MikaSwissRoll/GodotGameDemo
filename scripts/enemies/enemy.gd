@@ -338,6 +338,12 @@ func take_damage(amount: int, source_direction: Vector2) -> void:
     if not _alive:
         return
     health = maxi(0, health - amount)
+    # The funnel for the run's damage counter. Every path that hurts a hostile comes
+    # through here - the player's melee, the player's dash, a companion - so counting
+    # here cannot miss a new attack added somewhere else. Recorded after the `_alive`
+    # guard, so a hit on an already-dead body is not counted, and counted as the full
+    # amount rather than what was left to remove, which is the number the popup shows.
+    RunStats.record_damage(amount)
     _flash_left = 0.18
     _knockback = source_direction.normalized() * 190.0
     FEEDBACK.popup(get_parent(), global_position, str(amount), Color("#fff0b5"))
