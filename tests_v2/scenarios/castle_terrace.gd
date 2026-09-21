@@ -14,17 +14,21 @@ const SUITE := "castle_terrace"
 
 ## CastleTerrace is cols 15-23, rows 2-7, so its wall row is row 8: the drop line is
 ## y = 512 and the wall's foot, where the village ground starts, is y = 576. The two
-## stairs sit at the ends of the south wall, at columns 15 and 23.
+## stairs sit in the side notches beside the south wall, at columns 14 and 24.
 const DROP_LINE := 512.0
 const FACE_BOTTOM := 576.0
-const STAIR_WEST_X := 992.0
-const STAIR_EAST_X := 1504.0
+const STAIR_WEST_X := 928.0
+const STAIR_EAST_X := 1568.0
 ## Inside the wall's span and clear of both stairs.
 const WALL_PROBE_XS := [1120.0, 1376.0]
 const LOW_GROUND_Y := 760.0
 const TERRACE_Y := 300.0
-## The middle of the wall row, where a player walks to reach a stair at its end.
-const WALL_ROW_Y := 544.0
+## The stair's upper row, where the player crosses the side boundary horizontally.
+const STAIR_APPROACH_Y := 480.0
+## The forecourt's own span in world x (cols 15-23). Used to assert that a player who
+## crossed a stair ended up ON the terrace, rather than a castle-shaped window that
+## only held while the castle's collision was there to stop him.
+const TERRACE_X := Vector2(960.0, 1536.0)
 
 var _game: Node2D
 var _player: Player
@@ -63,10 +67,10 @@ func _run() -> void:
         "the terrace surface must register as HIGH")
     check_eq(Elevation.level_at(Vector2(STAIR_WEST_X, LOW_GROUND_Y)), Elevation.LOW,
         "the village ground below the wall must register as LOW")
-    check(Elevation.is_ramp_tile(Vector2i(15, 7)), "the west stair's lip row must be registered")
-    check(Elevation.is_ramp_tile(Vector2i(15, 8)), "the west stair's wall row must be registered")
-    check(Elevation.is_ramp_tile(Vector2i(23, 8)), "the east stair's wall row must be registered")
-    check(not Elevation.is_ramp_tile(Vector2i(16, 8)), "a stair must be exactly one column wide")
+    check(Elevation.is_ramp_tile(Vector2i(14, 7)), "the west stair's upper row must be registered")
+    check(Elevation.is_ramp_tile(Vector2i(14, 8)), "the west stair's lower row must be registered")
+    check(Elevation.is_ramp_tile(Vector2i(24, 8)), "the east stair's lower row must be registered")
+    check(not Elevation.is_ramp_tile(Vector2i(15, 8)), "a stair must be exactly one column wide")
     check(Elevation.levels_are_connected(), "the terrace must be reachable through its stairs")
 
     await _check_both_stairs_climb()
@@ -89,13 +93,10 @@ func _walk(action: String, frames: int) -> void:
     await wait_physics(2)
 
 
-## The player's route into the village castle: the official stairs at the ends of the
-## wall.
+## The player's routes into the village castle use the side notches beside the wall.
 ##
-## A stair sits at the END of the wall, so the way in is to walk along the wall row
-## until the wall itself stops you - which lands you exactly on the stair's column -
-## and then go up. That is also how the pieces are drawn: the west stair climbs west
-## to east, the east stair east to west.
+## The west stair climbs from west to east and opens the forecourt's west boundary.
+## The east stair mirrors it. The south wall remains continuous between them.
 ##
 ## The village is cluttered with houses and props, so the approach has to be probed
 ## for a spot the player can actually walk from. `_find_open_lateral` requires
@@ -105,12 +106,11 @@ func _walk(action: String, frames: int) -> void:
 func _check_both_stairs_climb() -> void:
     section("both stairs are a way up")
     for probe in [
-        {"xs": [880.0, 848.0, 912.0], "action": "move_right", "end": "west",
-         "column_x": Vector2(960.0, 1024.0)},
-        {"xs": [1616.0, 1584.0, 1648.0], "action": "move_left", "end": "east",
-         "column_x": Vector2(1472.0, 1536.0)},
+        {"xs": [840.0, 808.0, 872.0], "action": "move_right", "end": "west"},
+        {"xs": [1624.0, 1640.0, 1608.0], "action": "move_left", "end": "east"},
     ]:
-        var start: Vector2 = await _find_open_lateral(probe["xs"], WALL_ROW_Y, probe["action"])
+        var start: Vector2 = await _find_open_lateral(
+            probe["xs"], STAIR_APPROACH_Y, probe["action"])
         check(start.x >= 0.0,
             "setup: no open approach to the %s stair among %s, so it is untested" % [
                 probe["end"], probe["xs"]])
@@ -119,17 +119,19 @@ func _check_both_stairs_climb() -> void:
         check_eq(Elevation.level_at(_player.global_position), Elevation.LOW,
             "setup: should start LOW beside the %s stair" % probe["end"])
 
-        # Along the wall; the wall stops the player on the stair's own column.
-        await _walk(probe["action"], 60)
-        var column: Vector2 = probe["column_x"]
-        check(_player.global_position.x >= column.x and _player.global_position.x <= column.y,
-            "walking to the %s stair left the player outside its column at x=%.0f (expected %.0f..%.0f)" % [
-                probe["end"], _player.global_position.x, column.x, column.y])
-        check(_player.global_position.y > DROP_LINE and _player.global_position.y < FACE_BOTTOM,
-            "the player left the wall row while walking to the %s stair (y=%.0f)" % [
+        await _walk(probe["action"], 80)
+        # The player must end up ON the terrace and still on the stair's row. An
+        # earlier version narrowed this to the columns the castle used to block, which
+        # meant the check was really asserting that the castle was still there.
+        check(_player.global_position.x > TERRACE_X.x
+                and _player.global_position.x < TERRACE_X.y,
+            "crossing the %s stair did not leave the player on the terrace (x=%.0f, expected %.0f..%.0f)" % [
+                probe["end"], _player.global_position.x, TERRACE_X.x, TERRACE_X.y])
+        check(
+            _player.global_position.y > DROP_LINE - 64.0
+                and _player.global_position.y < DROP_LINE,
+            "the player left the stair row while crossing the %s entrance (y=%.0f)" % [
                 probe["end"], _player.global_position.y])
-        # Then up.
-        await _walk("move_up", 90)
         check_eq(Elevation.level_at(_player.global_position), Elevation.HIGH,
             "the %s stair did not carry the player onto the terrace (ended at %s, %s)" % [
                 probe["end"], _player.global_position.round(),

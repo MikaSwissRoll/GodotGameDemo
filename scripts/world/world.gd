@@ -4,14 +4,21 @@ const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const HIGH_GROUND := preload("res://scripts/world/high_ground.gd")
 const TOWN := preload("res://scripts/world/starting_town.gd")
 
-## The one region migrated to the elevation model so far. Rows 2-7 of the village
-## continent, with its single wall row at row 8.
+## The castle high ground is a stepped union rather than one isolated rectangle.
+## Its north edge reaches the map boundary, two shallow shoulders frame the castle,
+## and the original forecourt projects south to carry the visible wall and stairs.
+## This keeps the gameplay footprint explicit while matching the Tiny Swords
+## reference language: the castle belongs to a larger landform instead of sitting on
+## a flat coloured stage.
+const CASTLE_NORTH_TERRACE := Rect2i(13, 0, 13, 2)
+const CASTLE_WEST_SHOULDER := Rect2i(13, 2, 2, 4)
+const CASTLE_EAST_SHOULDER := Rect2i(24, 2, 2, 4)
 const CASTLE_TERRACE := Rect2i(15, 2, 9, 6)
-## Stairs at both ends of the south wall, in the pack's official usage: the west end
-## climbs west to east, the east end climbs east to west. Each is one column wide and
-## spans the lip row and the wall row.
-const CASTLE_STAIR_WEST_COLUMN := 15
-const CASTLE_STAIR_EAST_COLUMN := 23
+## The stairs occupy the low-ground side notches immediately outside the forecourt.
+## The west stair climbs east into the terrace; the east stair climbs west. Keeping
+## them outside the footprint leaves the south wall continuous, as in the reference.
+const CASTLE_STAIR_WEST_COLUMN := 14
+const CASTLE_STAIR_EAST_COLUMN := 24
 const MAP_CELLS := Vector2i(75, 24)
 const MAP_SIZE := Vector2(4800.0, 1536.0)
 const RIVER_LEFT := 2304.0
@@ -79,14 +86,28 @@ func _build_terrain() -> void:
     # stairs all come from one builder, so the drawn drop and the blocking edge cannot
     # drift apart.
     var stairs := [
-        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true),
-        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false),
+        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true, true),
+        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false, true),
     ]
     # GRASS_3 is a clearly different palette from the village's GRASS_1: raising the
     # ground has to be obvious at a glance, and colour is how the pack says it.
-    # `edge_art` stays off because the village grass surrounds this region on every
-    # side but the south, so the ground should run into it seamlessly.
-    HIGH_GROUND.build(_art, "CastleTerrace", GRASS_3, CASTLE_TERRACE, stairs)
+    # The composite region uses the atlas's stone-edged outer cells. Each piece checks
+    # the complete elevation field, so the shared seams stay clean while the true
+    # north/east/west outline receives the visible border requested by the scene.
+    # Declare the complete union first. Constructing a piece before its neighbours
+    # are known would wall the internal seams and split one terrace into four.
+    HIGH_GROUND.declare(CASTLE_NORTH_TERRACE)
+    HIGH_GROUND.declare(CASTLE_WEST_SHOULDER)
+    HIGH_GROUND.declare(CASTLE_EAST_SHOULDER)
+    HIGH_GROUND.declare(CASTLE_TERRACE, stairs)
+    HIGH_GROUND.construct(_art, "CastleNorthTerrace", GRASS_3,
+        CASTLE_NORTH_TERRACE, [], false, true)
+    HIGH_GROUND.construct(_art, "CastleWestShoulder", GRASS_3,
+        CASTLE_WEST_SHOULDER, [], false, true)
+    HIGH_GROUND.construct(_art, "CastleEastShoulder", GRASS_3,
+        CASTLE_EAST_SHOULDER, [], false, true)
+    HIGH_GROUND.construct(_art, "CastleTerrace", GRASS_3,
+        CASTLE_TERRACE, stairs, false, true)
     # Continuous lowland lets roads and grouped scenery describe the village.
     #
     # CampRise is NOT migrated yet: it still uses the old builder through the

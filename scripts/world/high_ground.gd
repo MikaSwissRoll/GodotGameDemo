@@ -43,8 +43,8 @@ const ROW_WALL_WATER := 5
 ## not re-derived here: an earlier revision swapped these on a reading of the atlas
 ## that did not survive being compared against the pack's own example map. Change them
 ## only against a capture, never against the tile sheet alone.
-const STAIR_COL_ASCENDING_EAST := 0
-const STAIR_COL_ASCENDING_WEST := 3
+const STAIR_COL_ASCENDING_EAST := 3
+const STAIR_COL_ASCENDING_WEST := 0
 
 ## A stair spans two rows: the grass row and the wall row.
 const STAIR_ROWS := 2
@@ -54,8 +54,16 @@ const STAIR_ROWS := 2
 ##
 ## `ascending_east` picks the piece: true is the stair that climbs from west to east
 ## (its low ground is to the west), false is its mirror.
-static func make_stair(column: int, ascending_east: bool) -> Dictionary:
-    return {"column": column, "ascending_east": ascending_east}
+static func make_stair(
+    column: int,
+    ascending_east: bool,
+    wood_steps: bool = false
+) -> Dictionary:
+    return {
+        "column": column,
+        "ascending_east": ascending_east,
+        "wood_steps": wood_steps,
+    }
 
 
 ## The two tile rows a stair occupies, given the footprint's last row.
@@ -188,12 +196,44 @@ static func _paint_wall(
     var wall_row := region.position.y + region.size.y
     var atlas_row := ROW_WALL_WATER if wall_over_water else ROW_WALL
     var layer := ENV._new_tile_layer(parent, region_name + "Wall", texture, -17)
-    for local_x in range(region.size.x):
-        var tile := Vector2i(region.position.x + local_x, wall_row)
-        # The wall's own ends use the set's end pieces, so the stone course looks
-        # terminated rather than sliced off.
-        layer.set_cell(tile, 0,
-            Vector2i(_column_for(tile, local_x, region.size.x, true), atlas_row))
+    var exposed_columns: Array[int] = []
+    for column in range(region.position.x, region.position.x + region.size.x):
+        # A composite terrace is built from several declared rectangles. Where the
+        # rectangle below is also HIGH, this is an internal seam rather than a drop.
+        # Painting a wall here would cut a false stone band through the terrace.
+        if not Elevation.is_high_tile(Vector2i(column, wall_row)):
+            exposed_columns.append(column)
+    _paint_wall_runs(layer, exposed_columns, wall_row, atlas_row)
+
+
+## Paint every consecutive exposed run with its own terminating end pieces.
+##
+## Treating the entire source rectangle as one run produces the wrong corners on a
+## stepped footprint: a wall that stops beside a forward terrace needs an end cap at
+## that join, even though the source rectangle itself continues behind the terrace.
+static func _paint_wall_runs(
+    layer: TileMapLayer,
+    columns: Array[int],
+    wall_row: int,
+    atlas_row: int
+) -> void:
+    if columns.is_empty():
+        return
+    var run_start := 0
+    for index in range(1, columns.size() + 1):
+        var run_ended := index >= columns.size() or columns[index] != columns[index - 1] + 1
+        if not run_ended:
+            continue
+        var run_length := index - run_start
+        for run_index in range(run_length):
+            var atlas_column := ATLAS_MIDDLE
+            if run_length > 1 and run_index == 0:
+                atlas_column = ATLAS_LEFT
+            elif run_length > 1 and run_index == run_length - 1:
+                atlas_column = ATLAS_RIGHT
+            layer.set_cell(Vector2i(columns[run_start + run_index], wall_row), 0,
+                Vector2i(atlas_column, atlas_row))
+        run_start = index
 
 
 ## The official stair pieces, drawn over the lip row and the wall row on their own
@@ -220,6 +260,65 @@ static func _paint_stairs(
             Vector2i(atlas_column, ROW_WALL))
         layer.set_cell(Vector2i(column, last_row), 0,
             Vector2i(atlas_column, ROW_WALL_WATER))
+        if bool(stair.get("wood_steps", false)):
+            _add_wood_steps(parent, region_name, column, last_row, bool(stair["ascending_east"]))
+
+
+## Add scene-specific wooden treads over the official grass slope.
+##
+## Tiny Swords has no separate wooden stair texture in this asset set. The grass
+## slope remains underneath and still defines the terrain silhouette; these small
+## pixel-aligned polygons only make a town entrance read as a maintained staircase.
+static func _add_wood_steps(
+    parent: Node,
+    region_name: String,
+    column: int,
+    last_row: int,
+    ascending_east: bool
+) -> void:
+    var steps := Node2D.new()
+    steps.name = region_name + ("WestWoodSteps" if ascending_east else "EastWoodSteps")
+    steps.z_index = -14
+    parent.add_child(steps)
+
+    var tile_left := float(column) * Elevation.TILE
+    var tile_top := float(last_row - 1) * Elevation.TILE
+    for index in 7:
+        var center_x := tile_left + Elevation.TILE * 0.5
+        var center_y := tile_top + 6.0 + float(index) * 17.0
+        _add_step_board(steps, Vector2(center_x, center_y))
+
+
+static func _add_step_board(parent: Node2D, center: Vector2) -> void:
+    var shadow := Polygon2D.new()
+    shadow.polygon = PackedVector2Array([
+        center + Vector2(-19.0, -5.0),
+        center + Vector2(19.0, -5.0),
+        center + Vector2(19.0, 5.0),
+        center + Vector2(-19.0, 5.0),
+    ])
+    shadow.color = Color("#49372f")
+    parent.add_child(shadow)
+
+    var board := Polygon2D.new()
+    board.polygon = PackedVector2Array([
+        center + Vector2(-16.0, -3.0),
+        center + Vector2(16.0, -3.0),
+        center + Vector2(16.0, 3.0),
+        center + Vector2(-16.0, 3.0),
+    ])
+    board.color = Color("#b97848")
+    parent.add_child(board)
+
+    var highlight := Polygon2D.new()
+    highlight.polygon = PackedVector2Array([
+        center + Vector2(-14.0, -3.0),
+        center + Vector2(14.0, -3.0),
+        center + Vector2(14.0, -1.0),
+        center + Vector2(-14.0, -1.0),
+    ])
+    highlight.color = Color("#dda060")
+    parent.add_child(highlight)
 
 
 ## Movement collision for every edge, split around the stair openings.
