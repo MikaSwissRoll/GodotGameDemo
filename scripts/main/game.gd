@@ -278,7 +278,7 @@ func _supply_tutorial_nudge() -> void:
     if not progress.merchant_tutorial_done():
         if progress.bought_health and progress.bought_stamina \
                 and not progress.used_health and not progress.used_stamina:
-            ui.show_npc_line("商人：请按下数字1、2喝下生命药水和精力药水。喝玩告诉你感觉怎么样？", 6.0)
+            ui.show_npc_line("商人：请按下数字1、2喝下生命药水和精力药水。喝完告诉你感觉怎么样？", 6.0)
         return
     if not progress.supply_nudge_sent:
         progress.supply_nudge_sent = true
