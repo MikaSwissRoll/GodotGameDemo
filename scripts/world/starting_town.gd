@@ -83,12 +83,14 @@ func _groves() -> void:
             continue
         ENV.add_bush(self, index % 4 + 1, at, 0.65, index)
     # Two trees flank the approach to the castle stairs, one below each entrance, at the
-    # centre of tile (13, 10) and tile (25, 10).
+    # centre of tile (13, 9) and tile (25, 9).
     #
-    # Placed explicitly rather than left to the grove layout above: their positions are
-    # chosen, not generated, so they should not move when the clusters are retuned.
+    # Both positions are inside `TERRACE_KEEPOUT`, the box the grove loop above skips, so
+    # they have to be placed explicitly - and they are deliberate: a reader who finds
+    # trees inside a keepout box and removes them as a bug would be undoing a placement
+    # that was asked for.
     for index in 2:
-        var spot: Vector2 = [Vector2(864.0, 672.0), Vector2(1632.0, 672.0)][index]
+        var spot: Vector2 = [Vector2(864.0, 608.0), Vector2(1632.0, 608.0)][index]
         ENV.add_tree(self, 1, spot, 0.85, true, 40 + index)
 
     for item in [[Vector2(960, 450), 2], [Vector2(1510, 530), 1],
