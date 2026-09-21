@@ -491,7 +491,12 @@ func _show_overlay(title: String, body: String, primary: String, secondary: Stri
     UI.apply_button(primary_button, 0 in danger)
     UI.apply_button(secondary_button, 1 in danger)
     UI.apply_button(tertiary_button, 2 in danger)
+    # Both, not just the label. The expiry path hides the two together, so hiding only
+    # the label here left the PANEL on screen - and because the timer is zeroed below,
+    # the expiry branch never ran again and the empty panel stayed there for good. That
+    # is the blank strip that appears under the HUD after visiting the Merchant.
     toast_label.visible = false
+    toast_backing.visible = false
     _toast_time = 0.0
     overlay.visible = true
     primary_button.grab_focus()

@@ -265,6 +265,24 @@ func _on_merchant_interacted() -> void:
 func _on_shop_closed() -> void:
     ui.hide_overlay()
     get_tree().paused = false
+    _supply_tutorial_nudge()
+
+
+## The Merchant's two follow-up lines, said once the shop is out of the way.
+##
+## They are spoken on close rather than from inside the shop because the overlay hides
+## the NPC line panel: anything said while it is open is never seen.
+func _supply_tutorial_nudge() -> void:
+    if progress.phase != ClassicProgression.Phase.MERCHANT_TUTORIAL:
+        return
+    if not progress.merchant_tutorial_done():
+        if progress.bought_health and progress.bought_stamina \
+                and not progress.used_health and not progress.used_stamina:
+            ui.show_npc_line("商人：请按下数字1、2喝下生命药水和精力药水。喝玩告诉你感觉怎么样？", 6.0)
+        return
+    if not progress.supply_nudge_sent:
+        progress.supply_nudge_sent = true
+        ui.show_npc_line("商人：很好，去找守卫吧，他会给你安排任务。", 5.0)
 
 
 func _on_buy_health_requested() -> void:

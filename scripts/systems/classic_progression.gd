@@ -55,6 +55,9 @@ var used_stamina := false
 ## again for a quest that is already finished.
 var guard_reward_paid := false
 var merchant_reward_paid := false
+## The Merchant's "go and see the Guard" line is said once, not every time the shop
+## closes after the supply tutorial is finished.
+var supply_nudge_sent := false
 
 
 func _ready() -> void:
