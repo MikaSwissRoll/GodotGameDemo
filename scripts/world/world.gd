@@ -5,12 +5,13 @@ const HIGH_GROUND := preload("res://scripts/world/high_ground.gd")
 const TOWN := preload("res://scripts/world/starting_town.gd")
 
 ## The one region migrated to the elevation model so far. Rows 2-7 of the village
-## continent, with its drawn stone face in rows 8-9.
+## continent, with its single wall row at row 8.
 const CASTLE_TERRACE := Rect2i(15, 2, 9, 6)
-## A composed two-step stair in that face, placed where the player walks in from the
-## village. The tileset has no ramp art, so it is built from the lip row.
-const CASTLE_RAMP_UPPER := Rect2i(16, 8, 2, 1)
-const CASTLE_RAMP_LOWER := Rect2i(15, 9, 4, 1)
+## Stairs at both ends of the south wall, in the pack's official usage: the west end
+## climbs west to east, the east end climbs east to west. Each is one column wide and
+## spans the lip row and the wall row.
+const CASTLE_STAIR_WEST_COLUMN := 15
+const CASTLE_STAIR_EAST_COLUMN := 23
 const MAP_CELLS := Vector2i(75, 24)
 const MAP_SIZE := Vector2(4800.0, 1536.0)
 const RIVER_LEFT := 2304.0
@@ -67,20 +68,21 @@ func _build_terrain() -> void:
         Rect2i(40, 0, 35, MAP_CELLS.y), -20, Vector4i(1, 0, 0, 0))
     # CastleTerrace, migrated to the elevation model.
     #
-    # It used to be built cliff-first: the surface was registered with collision
-    # disabled, a single hand-placed wall covered only part of the bottom edge, and
-    # the two side "ramps" were shoreline corner tiles - land meeting water - placed
-    # in the face rows with no collision at all. They read as an entrance only
-    # because no wall happened to be built in those columns, which made them
-    # indistinguishable from any other open edge, and the player was shown a beach
-    # where the way up should be.
+    # The original terrain was closer to correct than an earlier revision of this
+    # migration gave it credit for: it drew one wall row (right) and placed the two
+    # official stair pieces at the two ends of the south wall (right). What was
+    # actually broken was that only part of the bottom edge had collision at all, so
+    # the sides and top of the terrace were free entry, and that its hand-placed wall
+    # was 40px tall at y=510 while the wall row is y 512..576.
     #
-    # Now the surface, the two-row stone face, the boundary on every edge that faces
-    # low ground, and the stair all come from one builder, so the drawn drop and the
-    # blocking edge cannot drift apart.
-    HIGH_GROUND.declare(CASTLE_TERRACE, [CASTLE_RAMP_UPPER, CASTLE_RAMP_LOWER])
-    HIGH_GROUND.construct(_art, "CastleTerrace", GRASS_2, CASTLE_TERRACE,
-        [CASTLE_RAMP_UPPER, CASTLE_RAMP_LOWER])
+    # Now the surface, the one wall row, the collision on all four edges and the two
+    # stairs all come from one builder, so the drawn drop and the blocking edge cannot
+    # drift apart.
+    var stairs := [
+        HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true),
+        HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false),
+    ]
+    HIGH_GROUND.build(_art, "CastleTerrace", GRASS_2, CASTLE_TERRACE, stairs)
     # Continuous lowland lets roads and grouped scenery describe the village.
     #
     # CampRise is NOT migrated yet: it still uses the old builder through the

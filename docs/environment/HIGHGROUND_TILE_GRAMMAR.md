@@ -4,19 +4,24 @@ How to build high ground in this project using the **actual** Tiny Swords terrai
 assets. Read with [`ELEVATION_SYSTEM.md`](ELEVATION_SYSTEM.md), which defines the
 gameplay model this grammar must express.
 
-Every fact below was measured from the files in `asset/Terrain/Tileset/`, not
-recalled. Do not add a tile reference to code without re-checking it here first.
+Every fact below was measured from the files in `asset/Terrain/Tileset/` and checked
+against the pack's own tile legend. Do not add a tile reference to code without
+re-checking it here first.
 
----
+> **Two earlier revisions of this document were wrong**, and both errors were acted
+> on before they were caught. It claimed the cliff face was two rows and that the
+> pack had no ramp tile; in fact rows 4 and 5 are two *variants* of a one-row wall,
+> and the "shoreline corners" it dismissed are the pack's **stairs**. Read §2 and §4
+> before trusting any tile coordinate in prose elsewhere.
 
 ## 1. The atlas, measured
 
 All five palettes — `Tilemap_color1.png` … `Tilemap_color5.png` — are **576 × 384**,
 a **9 column × 6 row** grid of **64 px** cells. Their silhouettes are byte-identical
-per cell; only the palette differs. So one grammar covers all five, and a colour
-swap is always safe.
+per cell; only the palette differs. So one grammar covers all five, and a colour swap
+is always safe.
 
-Per-cell opaque coverage, which is the authoritative "does this cell have art" map:
+Per-cell opaque coverage, the authoritative "does this cell have art" map:
 
 ```
         c0   c1   c2   c3   c4   c5   c6   c7   c8
@@ -28,193 +33,159 @@ r4      48    .    .   50    .   89   95   90   84
 r5      89    .    .   92    .   85   93   85   78
 ```
 
-Two consequences that are easy to get wrong:
+**Column 4 is empty.** It is a spacer and nothing may be placed there.
 
-- **Column 4 is empty.** It is a spacer. Nothing may be placed there.
-- The atlas is split into a **LOW set (columns 0–3)** and a **HIGH set
-  (columns 5–8)**, separated by that spacer. The two sets are the same shapes with
-  different edge treatment.
+## 2. What each cell is
 
-## 2. Cell semantics
+The pack's legend names four kinds of piece. The columns are **not** "low" and
+"high" — they are two ground *materials*, and elevation is expressed by colour (§5).
 
-### LOW set — ordinary ground
+| Region | Cells | Piece | Use |
+| --- | --- | --- | --- |
+| top-left | `c0–c2 × r0–r2` | 临水地块 · square | ground beside water |
+| top-left | `c3 × r0–r2` | 临水地块 · rectangle | one-tile-wide strip beside water |
+| top-left | `c0–c3 × r3` | 临水地块 · bottom strip | free-standing horizontal edge |
+| bottom-left | **`c0 × r4–r5`** | **楼梯 · 由西向东的向上楼梯** | legal LOW→HIGH, climbing westward→eastward |
+| bottom-left | **`c3 × r4–r5`** | **楼梯 · 由东向西的向上楼梯** | legal LOW→HIGH, climbing eastward→westward |
+| top-right | `c5–c7 × r0–r2` | 草地块 · square | grass ground |
+| top-right | `c8 × r0–r2` | 草地块 · rectangle | one-tile-wide grass strip |
+| top-right | `c5–c8 × r3` | 草地块 · bottom strip | **the lip row**: clean lower edge with a pale highlight, sits directly on the wall |
+| bottom-right | **`c5–c8 × r4`** | **墙体 · 南面高地的墙体** | the south wall over land |
+| bottom-right | **`c5–c8 × r5`** | **墙体 · 南面高地的临水墙体** | the south wall over water |
 
-| Cells | Role |
+`r4` and `r5` are **alternatives, not two courses**. Pick one row: `r4` when the
+ground at the foot of the wall is land, `r5` when it is water. Drawing both stacks a
+waterline under dry ground.
+
+## 3. Projection: only the south edge has a face
+
+The pack is drawn in a fixed top-down view with the camera to the **south**. A raised
+region therefore shows a vertical face on **one edge only** — the edge facing the
+viewer:
+
+| Edge | What is drawn |
 | --- | --- |
-| `c0–c2 × r0` | Top edge of a ground block (ragged grass fringe above) |
-| `c0–c2 × r1` | Interior |
-| `c0–c2 × r2` | Bottom edge of a ground block |
-| `c3 × r0–r2` | One-tile-wide vertical ground strip |
-| `c0–c2 × r3` | Free-standing horizontal ground strip (fringed top and bottom) |
-| `c3 × r3` | Single free-standing ground tile (fringed on all four sides) |
-| `c0 × r4–r5` | Shoreline corner, land to the **left**, water lower-right |
-| `c3 × r4–r5` | Shoreline corner, land to the **right**, water lower-left |
+| **South** (viewer-facing) | the wall row, `r4` or `r5` |
+| North (far) | nothing; the surface's own outline closes the silhouette |
+| East / West | nothing; the surface's side outline closes the silhouette |
 
-`c0/r4` and `c3/r4` are only ~50 % opaque because they are diagonal; `r5` below
-completes them. They are a matched **pair** and are always placed together.
+Collision still exists on all four edges — a cliff is a boundary on every side
+(invariant 5 of `ELEVATION_SYSTEM.md`) — but only the south edge is *painted*.
 
-### HIGH set — raised ground
+**This is not an invisible wall, and it is not a defect.** It is the projection. An
+earlier revision of this document treated unpainted collision as a lie and built a
+stone retaining wall on all four sides; the result looked like a moat and contradicted
+every other object in the game. Do not repeat that.
 
-| Cells | Role |
-| --- | --- |
-| `c5–c7 × r0` | Top edge of the high surface — carries a **light teal lit rim** |
-| `c5–c7 × r1–r2` | High surface interior |
-| `c5–c7 × r3` | **Last grass row before the drop.** Clean straight lower edge with a pale highlight — this is the cliff lip |
-| `c8 × r0–r3` | One-tile-wide high-ground strip |
-| `c5–c8 × r4` | **Upper cliff face** — grey stone, with grass overhanging its top edge |
-| `c5–c8 × r5` | **Lower cliff face** — grey stone, the base course |
+What it *does* mean is that a high region whose north, east or west edge faces
+same-height open ground will read ambiguously. The official maps avoid this by putting
+**water or a map edge** against those sides. Do the same: choose a footprint whose
+non-south edges meet something the player already reads as impassable.
 
-The only visual difference between the LOW block and the HIGH block is the **lit
-teal rim** on the high surface and the **clean lip** instead of a ragged fringe at
-its bottom edge. That rim is the cue the player reads as "this is a step up".
+## 4. The stair
 
-## 3. The cliff face is TWO rows tall
+A stair is **2 rows tall and 1 column wide**, and it spans exactly:
 
-Rows `r4` and `r5` together form the stone face, and **both must be placed**. The
-asset provides no single-row face.
+```
+[ the high surface's last row  ]   <- the grass block row
+[ the wall row                 ]   <- one row below the footprint
+```
 
-> **Defect in the current builder.** `TinySwordsEnvironment.add_plateau` places the
-> cliff with `atlas_y = 4` only. Every plateau in the game therefore has a **half-height
-> cliff face**: a 64 px painted drop for a 128 px of art. This is one of the reasons the
-> high ground reads as a flat box. Correct terrain places `r4` **and** `r5`.
+So the wall is one row, the grass block is one row, and the stair covers the pair.
+That is why the stair is two rows: it replaces both, and its foot lands at the top of
+the low ground.
 
-## 4. There is no ramp tile — ramps must be composed
+Direction is fixed by the piece:
 
-This is the single most important fact in this document.
+- `c0 × r4–r5` climbs **west → east**, so the low ground is to its west;
+- `c3 × r4–r5` climbs **east → west**, so the low ground is to its east.
 
-**The tileset contains no grass ramp, stair or slope tile.** The only
-elevation-adjacent art is the 2-row stone cliff face (§3) and the diagonal
-shoreline corners (`c0`/`c3` × `r4–r5`), which are **land meeting water**, not a
-route between levels.
+The wall's collision is opened at the stair's column, in the wall row only. The
+stair's upper row is inside the footprint and is already walkable, so the actor's
+level flips as it steps up onto that row.
 
-The project nonetheless uses cells `(0,4) (0,5) (3,4) (3,5)` — the shoreline
-corners — as the castle terrace's "side ramps" in `world.gd`. That is a
-repurposing, and it is why the legal way up a plateau does not read as a way up:
-the player is shown a beach, not a staircase.
+Place stairs at the **ends** of a south wall, as the pack's own example map does. A
+one-column stair is the official unit; do not widen it, and do not compose a
+substitute. An earlier revision of this project invented a wider composed stair; it
+was withdrawn in favour of the official piece.
 
-Because there is no ramp art, **a legal access point must be composed from what
-exists**. Two step heights are available:
+## 5. Colour is elevation
 
-| Step | Composition | Reads as |
-| --- | --- | --- |
-| **1-tile step** | high-surface last row `r3` above stone `r4` | a low ledge with grass on top |
-| **2-tile step** | high-surface last row `r3` above stone `r4`+`r5` | a full-height drop |
+The pack distinguishes low ground from high ground **by using a different palette**,
+not by different geometry:
 
-A stair is a sequence of these at descending heights — typically
-`r3+r4+r5` → `r3+r4` → ground, each offset one tile outward, giving a two-step
-descent. Each step repeats the **lip row `r3` directly above its own stone rows**,
-so every tread reads as a walkable surface rather than a wall.
+- low ground: the 草地块 set from one palette, e.g. `Tilemap_color1.png`;
+- high ground: the 草地块 set from **another** palette, e.g. `Tilemap_color2.png`;
+- **the stair comes from the high ground's palette**, because it is part of the high
+  terrain.
 
-Do not invent a ramp by drawing arbitrary tiles, and do not present a shoreline
-corner as a route. If a scene genuinely needs a ramp the art cannot express, that
-is a decision to raise with the user — not something to fake with cliff tiles.
+So a stair joining `color1` low ground to `color2` high ground is drawn from
+`color2`. Keep the two palettes clearly distinct: if the step up is not obvious at a
+glance, the fix is the palette, not extra geometry.
 
-## 5. Construction order
+Within one landform, use one palette. Two palettes meeting mid-terrace reads as two
+materials butted together, not as one region.
 
-Build in this order. Every one of the failures in §7 came from starting at step 5.
+## 6. Construction order
 
 ```
 1.  Gameplay purpose        what is this high ground FOR?
 2.  High-ground footprint   the walkable rect, in tiles
-3.  Legal access point      where the ramp is, and its direction
-4.  Top-surface shape       rim row r0, interior r1-r2, lip row r3
-5.  Visible drop edges      which boundary cells actually drop
-6.  Cliff faces             stone r4 + r5 under every lip row r3
-7.  Gameplay collision      movement blockers along cliffs, opening at the ramp
-8.  Navigation              LOW and HIGH connected only through the ramp
-9.  Decoration              only after 1-8 are correct
-10. Runtime screenshot QA   judged against §10
+3.  Legal access point      which columns the stairs occupy, and their direction
+4.  Top-surface shape       rim row r0, interior r1–r2, lip row r3
+5.  Wall                    stone r4 (or r5 over water) across the south edge
+6.  Stairs                  official pieces over the lip row and the wall row
+7.  Gameplay collision      1 row of wall at the south, opened at the stair columns,
+                            plus collision on the other three edges with no art
+8.  Navigation              LOW and HIGH connected only through the stairs
+9.  Decoration              only after 1–8 are correct
+10. Runtime screenshot QA   judged against §9
 ```
 
-**TOP SURFACE FIRST. CLIFFS SECOND.**
+**TOP SURFACE FIRST. WALL SECOND.** A wall tile where no drop is visible is a lie
+about the terrain.
 
-Cliff tiles express a visible elevation boundary. They are **not** generic
-wall-fill. A cliff tile placed where no drop is visible is a lie about the terrain.
+## 7. Composition notes
 
-## 6. Composition recipes
-
-### Minimum viable plateau
-
-- Purpose: a defensible overlook, an archer perch, or a route waypoint.
-- Footprint: 4 × 3 tiles or larger. Smaller cannot show rim, interior and lip.
-- Access: one composed stair (§4) on one edge, two tiles wide.
-- Top surface: `r0` across the top row, `r1`/`r2` interior, `r3` across the bottom row.
-- Drop: `r4`+`r5` under every `r3`, except across the ramp opening.
-- Collision: one movement blocker per boundary **segment**, never one block over the
-  whole footprint.
-- Shape: a plateau must not be a bare rectangle. Break the outline — a notch, an
-  angled corner, an L — so its silhouette says what it is for.
-
-### Rules that keep it from looking mechanical
-
-- A cliff run should not exceed roughly five tiles without a break — a corner, a
-  stepped section, or the ramp. Long straight stone strips read as a wall texture,
-  not a landform.
-- The **rim row `r0` may only appear at the true top of a region**. Repeating it
-  mid-plateau creates a false edge.
-- The **lip row `r3` may only appear immediately above stone**. A lip with grass
+- Minimum footprint: 3 rows tall, so rim, interior and lip all fit. Under 3 rows the
+  region cannot show the rim/lip distinction at all.
+- The **rim row `r0` may only appear at the true top** of a region; repeating it
+  mid-region invents an edge.
+- The **lip row `r3` may only appear immediately above the wall**. A lip with grass
   below it is a visible lie about where the drop is.
-- Vary palette between adjacent regions, never within one region.
-- A shoreline corner (`c0`/`c3` × `r4–r5`) may only be used where land actually
-  meets water.
+- The 临水地块 set is for ground that actually meets water. Using it for the interior
+  of a landmass makes the whole area read as a beach.
+- Break a long silhouette deliberately — vary the footprint, or let the stairs do it —
+  rather than flagging it later. A straight wall is not itself wrong; an unbroken one
+  of 18 tiles is.
 
-## 7. Failure modes this grammar exists to prevent
-
-All seven observed in the current project.
+## 8. Failure modes this grammar exists to prevent
 
 | Failure | Cause |
 | --- | --- |
-| Giant rectangular grass platform | Footprint drawn as a plain rect with no silhouette design |
-| Huge solid cliff front | Whole footprint treated as one wall instead of a boundary |
-| Long mechanically repeated cliff strip | Cliff tiles used as fill along an unbroken straight run |
-| High ground that looks like a thick box | Only `r4` placed, so the face is half height and the top reads as a slab edge |
-| Terrain built cliff-first | Work started at step 5 with no gameplay purpose or footprint decided |
-| Platform with no functional relationship to gameplay | Drawn for looks; nothing can reach it, nothing uses it |
-| Ramp that does not read as a ramp | A **shoreline corner** used as an access route (§4) |
+| High ground that looks like a flat slab | Two wall rows drawn instead of one, or the wrong palette contrast |
+| A waterline under dry ground | `r5` used where the foot of the wall is land |
+| Ground that reads as a beach inland | 临水地块 used away from water |
+| A plateau that looks like a moat | Collision walls drawn on all four edges |
+| A ramp that does not read as a ramp | A stair piece used, but placed a row too low, so it never meets the grass row |
+| A ramp that looks like a hole in a wall | A composed substitute instead of the official stair piece |
+| Long mechanical cliff strip | Wall tiles used as fill along an unbroken run |
+| Platform with no gameplay purpose | Drawn for looks; nothing can reach it, nothing uses it |
 
-## 9. Edges the tileset cannot draw as a cliff
-
-The stone face is a **horizontal** course. There is no vertical cliff art anywhere
-in the pack, so a high region can render a cliff on its **south** edge only.
-
-The other three edges still have to be blocked — a cliff is a boundary on every side
-(invariant 5) — and blocking an edge with nothing drawn under it produces an
-invisible wall, which is exactly what the last line of §8 forbids: it looks walkable
-and is not.
-
-`HighGround` resolves this by drawing a **retaining wall**: the same stone, laid
-along the low-side band that the collision already occupies, using the base course
-(`ROW_FACE_BOTTOM`) rather than the top course. The top course carries a grass
-overhang that only makes sense on a downward-facing drop; the base course is plain
-masonry and reads correctly as a wall running along an edge.
-
-The result is a terrace that looks held up rather than one whose ground simply
-stops. This is the grammar's preferred remedy — bound the edge with something
-visible, using the terrain's own material rather than scattered decoration.
-
-What is **not** acceptable:
-
-- shipping the invisible wall and calling it done;
-- removing the collision, which makes the plateau reachable from every side and
-  undoes the entire model;
-- improvising a vertical cliff from rotated stone tiles. A rotated horizontal course
-  reads as a mistake far more often than as a face. If you try it, verify it in a
-  capture before believing it.
-
-## 10. Visual QA checklist
+## 9. Visual QA checklist
 
 Run the scene, capture the full viewport, and judge the rendered pixels. There is no
 automated assertion for this.
 
-**Macro** — does HIGH read as one coherent region? Can a viewer tell LOW, HIGH and
-the legal entrance apart at a glance?
+**Macro** — does HIGH read as one coherent region? Can a viewer tell LOW, HIGH and the
+legal entrance apart at a glance?
 
-**Meso** — does the plateau look like terrain rather than a large rectangular box?
-Are cliff faces used only where a drop is actually visible? Are there long
-mechanical cliff strips? Does the ramp belong to the terrain it serves?
+**Meso** — does the plateau look like terrain rather than a large rectangular box? Is
+the wall exactly one row? Are the stairs at the ends of the wall, meeting the grass
+row? Is the palette step between low and high obvious?
 
-**Micro** — are top and cliff cells aligned? Are the rim row and the lip row each
-used only in their legal position? Is tile repetition distracting?
+**Micro** — are top and wall cells aligned? Are the rim row and the lip row each used
+only in their legal position? Is `r4`/`r5` chosen to match what is under the wall?
 
 **Gameplay readability** — can a player see where they cannot cross, and see how to
 get up?
@@ -222,5 +193,23 @@ get up?
 > Anywhere that **looks traversable but is blocked** is a failure.
 > Anywhere that **looks blocked but is traversable** is also a failure.
 
-A platform that satisfies every gameplay invariant and still fails this checklist is
-not finished.
+Within the scope of the *visible surface* — a raised region's north and side edges are
+not visible faces and are excluded by §3.
+
+## 10. Official references
+
+The pack ships a tile legend and an example map. They are **third-party art and are
+not redistributed with this repository** — `asset/` is gitignored. Supply them
+locally at:
+
+| Path | What it shows |
+| --- | --- |
+| `asset/Reference/official_tile_legend_zh.png` | the legend: which cells are ground, stairs and wall |
+| `asset/Reference/official_showcase_map.png` | an assembled example map: how the pieces combine |
+| `asset/Reference/official_castle_terrace.png` | a raised castle terrace in context |
+| `asset/Reference/official_stair_and_wall.png` | a stair meeting the wall and the grass row |
+
+**Read all three of the atlas, the legend and the example map before changing
+terrain.** The atlas says which pieces exist, the legend says what each one is, and
+the example map says how they are meant to combine. Any one of them alone produced a
+wrong answer in this project's history — twice.

@@ -14,10 +14,13 @@ const FOLLOWER_SCENE := "res://scenes/party/follower.tscn"
 
 const SUITE := "melee_elevation"
 
-## Known-good positions in the lab.
-const HIGH_POINT := Vector2(150.0, 150.0)
-const LOW_POINT := Vector2(150.0, 520.0)
-const RAMP_APPROACH := Vector2(500.0, 500.0)
+## Known-good positions in the lab. The terrace is cols 4-15, rows 1-3, with its wall
+## row at 4 and its two official stairs at columns 4 and 15.
+const HIGH_POINT := Vector2(384.0, 150.0)
+const LOW_POINT := Vector2(640.0, 450.0)
+## Clear of both stair openings, so a bandit here cannot stumble up one.
+const RAMP_APPROACH := Vector2(400.0, 420.0)
+const AWAY_FROM_STAIRS := Vector2(640.0, 420.0)
 
 var _lab: Node2D
 var _player: Player
@@ -297,21 +300,21 @@ func _check_no_route_holds_instead_of_freezing() -> void:
     Elevation.register_high_region(Rect2i(12, 1, 7, 4))
     check(not Elevation.levels_are_connected(), "setup: the levels must not be connected")
 
-    var enemy := _spawn_enemy(Vector2(384.0, 470.0))
+    var enemy := _spawn_enemy(AWAY_FROM_STAIRS)
     enemy.move_speed = 125.0
     enemy.damage = 0
     enemy.set_physics_process(true)
     await wait_physics(120)
 
     check_eq(Elevation.level_at(enemy.global_position), Elevation.LOW,
-        "the bandit crossed onto the high ground with no ramp to use")
+        "the bandit crossed onto the high ground with no stair to use")
     var settled := enemy.global_position
     await wait_physics(60)
     var drift := enemy.global_position.distance_to(settled)
     check(drift < 8.0,
         "the bandit was still moving after the hold settled (%.1fpx of drift), so it is pacing rather than waiting" % drift)
-    check(enemy.global_position.y > 384.0,
-        "the bandit is pressed into the cliff face (y=%.0f)" % enemy.global_position.y)
+    check(enemy.global_position.y > 320.0,
+        "the bandit is pressed into the wall (y=%.0f)" % enemy.global_position.y)
 
     enemy.queue_free()
     await wait_physics(2)
