@@ -66,16 +66,26 @@ viewer:
 | Edge | What is drawn |
 | --- | --- |
 | **South** (viewer-facing) | the wall row, `r4` or `r5` |
-| North (far) | nothing; the surface's own outline closes the silhouette |
-| East / West | nothing; the surface's side outline closes the silhouette |
+| North (far) | nothing, and the surface runs on **seamlessly**: interior art, no rim |
+| East / West | nothing, and the surface runs on **seamlessly**: interior art, no side fringe |
 
-Collision still exists on all four edges — a cliff is a boundary on every side
-(invariant 5 of `ELEVATION_SYSTEM.md`) — but only the south edge is *painted*.
+Collision exists on all four edges — a cliff is a boundary on every side (invariant 5
+of `ELEVATION_SYSTEM.md`) — but only the south edge is *painted with a face*.
+
+The three unpainted edges use **interior** art, not edge art. An edge piece draws a
+ragged fringe and an outline, which turns the high ground into a patch laid on top of
+the terrain with a visible seam. Left as interior, the ground runs continuously into
+its surroundings and the **palette step** is what says "this is higher" (see §5).
+
+`HighGround` exposes this as `edge_art`. Leave it **off** when the region is
+surrounded by more ground. Turn it **on** when those sides meet a different material
+such as water, where a fringe is the correct treatment.
 
 **This is not an invisible wall, and it is not a defect.** It is the projection. An
 earlier revision of this document treated unpainted collision as a lie and built a
 stone retaining wall on all four sides; the result looked like a moat and contradicted
-every other object in the game. Do not repeat that.
+every other object in the game. A later one drew the grass set's edge art there, which
+produced the seamless-ground defect instead. Do not repeat either.
 
 What it *does* mean is that a high region whose north, east or west edge faces
 same-height open ground will read ambiguously. The official maps avoid this by putting
@@ -95,14 +105,38 @@ So the wall is one row, the grass block is one row, and the stair covers the pai
 That is why the stair is two rows: it replaces both, and its foot lands at the top of
 the low ground.
 
-Direction is fixed by the piece:
+Direction is fixed by the piece, and the two are **mirror images**:
 
-- `c0 × r4–r5` climbs **west → east**, so the low ground is to its west;
-- `c3 × r4–r5` climbs **east → west**, so the low ground is to its east.
+| Piece | Measured appearance (4x) | Raised side | Climbs |
+| --- | --- | --- | --- |
+| `c3 × r4–r5` | stone left, **grass right** | east | west → east |
+| `c0 × r4–r5` | **grass left**, stone right | west | east → west |
 
-The wall's collision is opened at the stair's column, in the wall row only. The
-stair's upper row is inside the footprint and is already walkable, so the actor's
-level flips as it steps up onto that row.
+> Identify them by that measurement, **not** by the legend's panel order. The legend
+> prints the two trapezoids side by side and the atlas places them two columns apart,
+> and reading the order across from one to the other puts them backwards. Placing the
+> wrong one still climbs, but its grass faces away from the terrace, so the slope reads
+> as descending the wrong way.
+
+At a **wall's end** the raised side must face the terrace: the west stair needs
+`c3` (raised side east), the east stair needs `c0` (raised side west).
+
+### A stair occludes the wall, it does not replace it
+
+Paint the wall across its **full span**, then draw the stair on a layer above it.
+
+The stair's art is mostly grass with a stone wedge at one corner, so cutting a tile
+out of the wall at the stair column leaves the grass with nothing behind it: the wall
+looks bitten and the stair looks like a patch glued to its end. Drawn on top instead,
+it reads as a slope in front of the wall — which is what the pack's own example map
+shows.
+
+**What is drawn and what blocks are separate questions.** The wall row's *collision*
+is opened at the stair column; the stone is not.
+
+The wall's collision is exactly ONE row, matching the one row drawn. A taller collider
+stops the player a tile short of the stone they can see, with a visible gap between
+them.
 
 Place stairs at the **ends** of a south wall, as the pack's own example map does. A
 one-column stair is the official unit; do not widen it, and do not compose a

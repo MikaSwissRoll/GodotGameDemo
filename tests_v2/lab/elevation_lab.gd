@@ -31,9 +31,10 @@ const ENV := preload("res://scripts/world/tiny_swords_environment.gd")
 const HIGH_GROUND := preload("res://scripts/world/high_ground.gd")
 
 ## Low ground uses one palette's grass set; high ground uses another. The colour step
-## is the elevation cue - see the grammar, section 5.
+## is the elevation cue - see the grammar, section 5. color1 and color2 are too close
+## to read as a step; color3 is clearly distinct.
 const LOW_TEXTURE := preload("res://asset/Terrain/Tileset/Tilemap_color1.png")
-const HIGH_TEXTURE := preload("res://asset/Terrain/Tileset/Tilemap_color2.png")
+const HIGH_TEXTURE := preload("res://asset/Terrain/Tileset/Tilemap_color3.png")
 
 const ROOM_TILES := Vector2i(20, 11)
 const TERRACE := Rect2i(4, 1, 12, 3)
@@ -68,10 +69,13 @@ func build() -> void:
     ENV.add_ground_rect(_art, "LowGround", LOW_TEXTURE, LOW_GROUND, -20)
     # One region, so `build` is safe here. A scene with two or more must declare all
     # of them before constructing any - see HighGround.declare.
+    # `edge_art` is ON because this terrace is flanked by WATER on its north, east and
+    # west sides, where a fringe is the correct edge treatment. A terrace surrounded by
+    # more grass would leave it off so the ground runs on seamlessly.
     HIGH_GROUND.build(_art, "Terrace", HIGH_TEXTURE, TERRACE, [
         HIGH_GROUND.make_stair(STAIR_WEST_COLUMN, true),
         HIGH_GROUND.make_stair(STAIR_EAST_COLUMN, false),
-    ])
+    ], false, true)
     _add_room_boundary()
 
     var player := get_node_or_null("Player") as Player

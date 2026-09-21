@@ -82,7 +82,11 @@ func _build_terrain() -> void:
         HIGH_GROUND.make_stair(CASTLE_STAIR_WEST_COLUMN, true),
         HIGH_GROUND.make_stair(CASTLE_STAIR_EAST_COLUMN, false),
     ]
-    HIGH_GROUND.build(_art, "CastleTerrace", GRASS_2, CASTLE_TERRACE, stairs)
+    # GRASS_3 is a clearly different palette from the village's GRASS_1: raising the
+    # ground has to be obvious at a glance, and colour is how the pack says it.
+    # `edge_art` stays off because the village grass surrounds this region on every
+    # side but the south, so the ground should run into it seamlessly.
+    HIGH_GROUND.build(_art, "CastleTerrace", GRASS_3, CASTLE_TERRACE, stairs)
     # Continuous lowland lets roads and grouped scenery describe the village.
     #
     # CampRise is NOT migrated yet: it still uses the old builder through the

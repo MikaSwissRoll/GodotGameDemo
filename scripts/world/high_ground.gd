@@ -35,9 +35,17 @@ const ROW_LIP := 3
 const ROW_WALL := 4
 const ROW_WALL_WATER := 5
 
-## Atlas columns of the two official stairs.
-const STAIR_COL_ASCENDING_EAST := 0
-const STAIR_COL_ASCENDING_WEST := 3
+## Atlas columns of the two official stairs, identified by MEASURED appearance rather
+## than by the legend's panel order.
+##
+## Magnified at 4x, `c3 x r4-r5` is stone on its left and grass on its right, so its
+## raised side is east and it is the stair you climb from west to east. `c0` is its
+## mirror: grass on the left, raised side west, climbed from east to west.
+##
+## This matters at a wall's end. The west stair stands where the low ground is to the
+## west, so its raised side has to face east - that is `c3`, not `c0`.
+const STAIR_COL_ASCENDING_EAST := 3
+const STAIR_COL_ASCENDING_WEST := 0
 
 ## A stair spans two rows: the lip row and the wall row.
 const STAIR_ROWS := 2
@@ -71,16 +79,23 @@ static func declare(footprint: Rect2i, stairs: Array = []) -> void:
 
 
 ## Paint one already-declared region and derive its collision.
+##
+## `edge_art` draws the grass set's rim and left/right edge pieces on the north, east
+## and west sides. Leave it OFF when the region is surrounded by more ground: the
+## ground should run seamlessly into its surroundings and the palette step should be
+## what says "this is higher". Turn it ON when those sides meet a different material,
+## such as water, where a fringe is the correct edge treatment.
 static func construct(
     parent: Node,
     region_name: String,
     texture: Texture2D,
     footprint: Rect2i,
     stairs: Array = [],
-    wall_over_water: bool = false
+    wall_over_water: bool = false,
+    edge_art: bool = false
 ) -> TileMapLayer:
     var region := _normalize(footprint)
-    var surface := _paint_surface(parent, region_name, texture, region)
+    var surface := _paint_surface(parent, region_name, texture, region, edge_art)
     _paint_wall(parent, region_name, texture, region, wall_over_water)
     _paint_stairs(parent, region_name, texture, region, stairs)
     _build_boundary(parent, region, stairs)
@@ -95,10 +110,11 @@ static func build(
     texture: Texture2D,
     footprint: Rect2i,
     stairs: Array = [],
-    wall_over_water: bool = false
+    wall_over_water: bool = false,
+    edge_art: bool = false
 ) -> TileMapLayer:
     declare(footprint, stairs)
-    return construct(parent, region_name, texture, footprint, stairs, wall_over_water)
+    return construct(parent, region_name, texture, footprint, stairs, wall_over_water, edge_art)
 
 
 static func _normalize(footprint: Rect2i) -> Rect2i:
@@ -107,23 +123,27 @@ static func _normalize(footprint: Rect2i) -> Rect2i:
 
 
 ## Row 0 is the lit rim, the last row is the cliff lip, everything between is
-## interior - but only where the edge is actually exposed.
+## interior.
 ##
-## A rim or lip next to more high ground is a false edge: it draws a lit border and a
-## ragged fringe down the middle of what is one continuous terrace.
-static func _row_for(tile: Vector2i, local_y: int, height: int) -> int:
+## The lip row always applies: it is the row that meets the wall. The rim is only
+## drawn when `edge_art` is on, because a rim next to more ground is a false edge -
+## it draws a lit border and a ragged fringe along the top of what is continuous
+## terrain.
+static func _row_for(tile: Vector2i, local_y: int, height: int, edge_art: bool) -> int:
     if height <= 1:
         return ROW_LIP
-    if local_y == 0 and not Elevation.is_high_tile(tile + Vector2i(0, -1)):
-        return ROW_RIM
     if local_y == height - 1 and not Elevation.is_high_tile(tile + Vector2i(0, 1)):
         return ROW_LIP
+    if edge_art and local_y == 0 and not Elevation.is_high_tile(tile + Vector2i(0, -1)):
+        return ROW_RIM
     return ROW_INTERIOR
 
 
-## Same idea for columns: left and right edge art only faces exposed ground.
-static func _column_for(tile: Vector2i, local_x: int, width: int) -> int:
-    if width <= 1:
+## Left and right edge art only when `edge_art` is on. Otherwise the sides are
+## interior, so the ground runs seamlessly into whatever is beside it and the colour
+## step - not a fringe - is what says "this is higher".
+static func _column_for(tile: Vector2i, local_x: int, width: int, edge_art: bool) -> int:
+    if not edge_art or width <= 1:
         return ATLAS_MIDDLE
     if local_x == 0 and not Elevation.is_high_tile(tile + Vector2i(-1, 0)):
         return ATLAS_LEFT
@@ -136,20 +156,29 @@ static func _paint_surface(
     parent: Node,
     region_name: String,
     texture: Texture2D,
-    region: Rect2i
+    region: Rect2i,
+    edge_art: bool
 ) -> TileMapLayer:
     var layer := ENV._new_tile_layer(parent, region_name, texture, -18)
     for local_y in range(region.size.y):
         for local_x in range(region.size.x):
             var tile := region.position + Vector2i(local_x, local_y)
             layer.set_cell(tile, 0,
-                Vector2i(_column_for(tile, local_x, region.size.x),
-                    _row_for(tile, local_y, region.size.y)))
+                Vector2i(_column_for(tile, local_x, region.size.x, edge_art),
+                    _row_for(tile, local_y, region.size.y, edge_art)))
     return layer
 
 
-## ONE row of wall along the south edge, at the row below the footprint. Skipped
-## where a stair opens it.
+## ONE row of wall along the south edge, at the row below the footprint.
+##
+## The wall is painted across the FULL span, including under a stair. The stair is a
+## separate piece drawn on a layer above (see `_paint_stairs`), so it occludes the
+## wall the way the pack's own art does. An earlier version cut a tile out of the wall
+## at each stair instead, which left the grass with nothing behind it - the stair read
+## as a patch glued to the wall's end and the wall read as bitten.
+##
+## What is drawn and what blocks are separate questions: the collision for this row is
+## opened at the stair columns, the stone is not.
 static func _paint_wall(
     parent: Node,
     region_name: String,
@@ -159,19 +188,18 @@ static func _paint_wall(
 ) -> void:
     var wall_row := region.position.y + region.size.y
     var atlas_row := ROW_WALL_WATER if wall_over_water else ROW_WALL
-    var layer: TileMapLayer = null
+    var layer := ENV._new_tile_layer(parent, region_name + "Wall", texture, -17)
     for local_x in range(region.size.x):
         var tile := Vector2i(region.position.x + local_x, wall_row)
-        if Elevation.is_ramp_tile(tile):
-            continue
-        if layer == null:
-            layer = ENV._new_tile_layer(parent, region_name + "Wall", texture, -17)
+        # The wall's own ends use the set's end pieces, so the stone course looks
+        # terminated rather than sliced off.
         layer.set_cell(tile, 0,
-            Vector2i(_column_for(tile, local_x, region.size.x), atlas_row))
+            Vector2i(_column_for(tile, local_x, region.size.x, true), atlas_row))
 
 
-## The official stair pieces, drawn over the lip row and the wall row. Its own layer
-## above the surface and the wall, because it replaces part of both.
+## The official stair pieces, drawn over the lip row and the wall row on their own
+## layer, so a stair OCCLUDES the wall rather than replacing it. That is what makes it
+## read as a slope in front of the wall instead of a hole in it.
 static func _paint_stairs(
     parent: Node,
     region_name: String,
@@ -182,7 +210,7 @@ static func _paint_stairs(
     if stairs.is_empty():
         return
     var last_row := region.position.y + region.size.y
-    var layer := ENV._new_tile_layer(parent, region_name + "Stairs", texture, -16)
+    var layer := ENV._new_tile_layer(parent, region_name + "Stairs", texture, -15)
     for stair in stairs:
         var column := int(stair["column"])
         var atlas_column := STAIR_COL_ASCENDING_EAST if bool(stair["ascending_east"]) \
