@@ -109,8 +109,7 @@ elevation behaviour, read:
   disagrees with it, the code is wrong.** Two levels only; ramps are the only legal
   crossing; melee requires the same level (0 crossings); ranged may cross **at most one**
   boundary, which is what makes high ground cover as well as a firing position;
-  `CanReachTarget` and `CanAttackTarget` are different questions. No projectile blocker
-  exists yet, so arrows pass through buildings.
+  `CanReachTarget` and `CanAttackTarget` are different questions. Buildings do not block projectiles by design - arrows pass through them.
 - `docs/environment/HIGHGROUND_TILE_GRAMMAR.md` — how to compose the terrain from
   the real Tiny Swords assets, and the build procedure in §6.1. Top surface first,
   cliffs second. The pack **does** provide stair pieces, at atlas c0 and c3 rows

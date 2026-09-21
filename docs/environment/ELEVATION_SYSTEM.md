@@ -143,14 +143,13 @@ Rules:
   ProjectileBlocker.
 - Projectiles may travel HIGH → LOW and LOW → HIGH, **at most one crossing** (section 7).
   The crossing budget is what limits a shot, not collision.
-- Real obstacles — buildings, fortress walls, a closed gate — may block projectiles
-  as the scene requires. That is a deliberate, scene-specific ProjectileBlocker, not
-  a side effect of a cliff.
-  > **No ProjectileBlocker exists yet.** Today an arrow passes through buildings: it
-  > connects `area_entered` only, and a building is a `StaticBody2D`, so the two can
-  > never meet. Treat buildings as cover for characters, not for projectiles, until a
-  > blocker layer is added. Do not "fix" this by adding the world bit to the arrow's
-  > mask — that would make cliffs block arrows and silently delete section 7.
+- Real obstacles — buildings, fortress walls — **do not block projectiles, and are not
+  meant to.** They are cover for characters, not for arrows: a building is a
+  `StaticBody2D` and an arrow connects `area_entered` only, so the two can never meet,
+  and an arrow goes straight through a castle.
+  > Do not "fix" this by adding the world bit to the arrow's mask. That would make every
+  > cliff block arrows too, and silently delete section 7. If a projectile blocker is
+  > ever wanted it needs its own layer, chosen deliberately.
 - The ramp's opening stays **traversable**. A boundary may be split into segments to
   leave the opening clear, and short ramp-side segments are allowed where they stop
   an actor clipping sideways through the edge.
