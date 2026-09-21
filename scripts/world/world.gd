@@ -14,15 +14,15 @@ const CASTLE_NORTH_TERRACE := Rect2i(13, 0, 13, 2)
 const CASTLE_WEST_SHOULDER := Rect2i(13, 2, 2, 4)
 const CASTLE_EAST_SHOULDER := Rect2i(24, 2, 2, 4)
 const CASTLE_TERRACE := Rect2i(14, 2, 11, 6)
-## The stairs occupy the low-ground side notches immediately outside the forecourt.
-## The west stair climbs east into the terrace; the east stair climbs west. Keeping
-## them outside the footprint leaves the south wall continuous, as in the reference.
+## The stairs sit on the forecourt's own end columns, 14 and 24.
 ##
-## They sit one column further out than the forecourt's edge, and they had to move when
-## the forecourt widened: at 14 and 24 they would now be part of the terrace itself
-## rather than a notch beside it.
-const CASTLE_STAIR_WEST_COLUMN := 13
-const CASTLE_STAIR_EAST_COLUMN := 25
+## Note what that makes them: the forecourt now spans cols 14-24, so those two columns
+## are part of the terrace rather than low ground beside it. Each stair therefore
+## occupies its column's last surface row plus the wall row, which opens the SOUTH wall
+## at that column instead of a side notch - an entrance you walk up from the south,
+## not one you step sideways into.
+const CASTLE_STAIR_WEST_COLUMN := 14
+const CASTLE_STAIR_EAST_COLUMN := 24
 const MAP_CELLS := Vector2i(75, 24)
 const MAP_SIZE := Vector2(4800.0, 1536.0)
 const RIVER_LEFT := 2304.0
