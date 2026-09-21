@@ -27,15 +27,14 @@ func _grass_districts() -> void:
     ENV.add_ground_rect(self, "GrazingMeadow", cool, Rect2i(28, 16, 5, 5), -19)
 
 func _architecture() -> void:
-    # The castle is deliberately NOT placed. It was the only building standing on the
-    # castle terrace, and its collision box (250x56 at cols 17-20, rows 6-7) plus a
-    # sprite spanning roughly cols 17-22 constrained how narrow the high ground's
-    # southern head could be. It was removed so the terrace can be reshaped freely and
-    # re-placed once the terrain is settled.
+    # Dead centre of the forecourt: it spans cols 14-24, so x 896..1600 and its middle
+    # is x 1248. The foot sits on the terrace's own last surface row, which is what puts
+    # the collision (250x56) on rows 6-7 inside the forecourt.
     #
-    # To restore it:
-    #     ENV.add_building(self, BLUE + "Castle.png", Vector2(1216, 480), 1.0,
-    #         Vector2(250, 56), Vector2(1.7, 0.66))
+    # It was moved off x 1216, which was half a tile west of centre - a leftover from
+    # when the forecourt was cols 15-23.
+    ENV.add_building(self, BLUE + "Castle.png", Vector2(1248, 480), 1.0,
+        Vector2(250, 56), Vector2(1.7, 0.66))
     ENV.add_building(self, BLUE + "Monastery.png", Vector2(1720, 510), 0.9,
         Vector2(102, 46))
     var buildings := [
