@@ -180,6 +180,22 @@ func _spawn_archer(at: Vector2, scale_factor: float) -> void:
     remaining_enemies += 1
 
 
+## Where the elite's three archers stand: spread wide across the low ground, clear of
+## the fort's buildings (rows 3-4) and of the player's spawn at (230, 485).
+##
+## Spread rather than stacked because the elite is a melee duel and these are what stop
+## it being one. Grouped together, backing away from them would break line on all three
+## at once; fanned out, the player has to move to find cover from one and gives up the
+## angle on another. There is deliberately no high ground in this arena to hide behind,
+## so the answer is movement, not terrain.
+const ELITE_ARCHERS := [
+    Vector2(360.0, 590.0),
+    Vector2(1150.0, 430.0),
+    Vector2(840.0, 600.0),
+]
+
+
+## The elite, plus three archers.
 func _spawn_elite() -> void:
     var enemy := MELEE.instantiate() as Enemy
     enemy.elite = true
@@ -192,6 +208,10 @@ func _spawn_elite() -> void:
     enemy.global_position = Vector2(920, 410)
     enemy.defeated.connect(_on_enemy_defeated)
     remaining_enemies += 1
+    # Scaled like the boss room's other reinforcements. `_spawn_archer` adds the group,
+    # the signal and the count itself, so this stays three lines.
+    for at in ELITE_ARCHERS:
+        _spawn_archer(at, 1.16)
 
 
 func _on_enemy_defeated(_at: Vector2) -> void:
